@@ -1,9 +1,5 @@
-from functools import partial
 import json
 import pprint
-
-import msgpack
-import msgpack_numpy as mpn
 
 import redis
 
@@ -24,12 +20,12 @@ from bluesky_kafka import RemoteDispatcher
 #     # has been failing on Linux, passing on OSX
 #     consumer_config={"auto.offset.reset": "latest"},
 #     polling_duration=1.0,
-#     deserializer=partial(msgpack.loads, object_hook=mpn.decode),
 # )
 
+zmq_listening_prefix = b"from-analysis"
+
 zmq_dispatcher = ZmqRemoteDispatcher(
-    address=("127.0.0.1", 5678),
-    prefix=b'from-analysis'
+    address=("127.0.0.1", 5678), prefix=zmq_listening_prefix
 )
 
 
@@ -40,7 +36,7 @@ class RedisQueue:
         self.client = client
 
     def put(self, value):
-        print(f"pushing {value}")
+        print(f"pushing to redis queue: {value}")
         self.client.lpush("adaptive", json.dumps(value))
 
 
@@ -54,11 +50,14 @@ recommender_factory, _ = per_start.recommender_factory(
     independent_keys=["motor"],
     dependent_keys=["det"],
     max_count=max_count,
-    queue=redis_queue
+    queue=redis_queue,
 )
+zmq_dispatcher.subscribe(recommender_factory)
 
 
 def echo_factory(start_name, start_doc):
+    print(f"echo_factory called with {start_name}\n{pprint.pformat(start_doc)}\n")
+
     def echo(name, doc):
         print(f"adaptive consumer received {name}:\n{pprint.pformat(doc)}\n")
 
@@ -66,12 +65,7 @@ def echo_factory(start_name, start_doc):
 
 
 echo_run_router = RunRouter(factories=[echo_factory])
-
-# if the echo run router is subscribed first
-# will it print the start doc before the exception?
 zmq_dispatcher.subscribe(echo_run_router)
-# what if the recommender factory just never gets the documents
-#zmq_dispatcher.subscribe(recommender_factory)
 
-print("ADAPTIVE CONSUMER IS READY TO START")
+print(f"ADAPTIVE CONSUMER LISTENING ON {zmq_listening_prefix}")
 zmq_dispatcher.start()
