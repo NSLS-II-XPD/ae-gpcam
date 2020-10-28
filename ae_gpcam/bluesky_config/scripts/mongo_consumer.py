@@ -13,16 +13,22 @@ parser = argparse.ArgumentParser(
     description="monogo consumer process",
 )
 parser.add_argument(
-    "--kafka_server", type=str, help="bootstrap server to connect to.",
-    default="127.0.0.1:9092"
+    "--kafka_server",
+    type=str,
+    help="bootstrap server to connect to.",
+    default="127.0.0.1:9092",
 )
 parser.add_argument(
-    "--kafka_group", type=str, help="bootstrap server to connect to.",
-    default="mongo-consumers"
+    "--kafka_group",
+    type=str,
+    help="bootstrap server to connect to.",
+    default="mongo-consumers",
 )
 parser.add_argument(
-    "--mongo_uri", type=str, help="bootstrap server to connect to.",
-    default="mongodb://localhost:27017"
+    "--mongo_uri",
+    type=str,
+    help="bootstrap server to connect to.",
+    default="mongodb://localhost:27017",
 )
 
 args = parser.parse_args()

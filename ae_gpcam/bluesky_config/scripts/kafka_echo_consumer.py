@@ -11,8 +11,10 @@ parser = argparse.ArgumentParser(
     description="monogo consumer process",
 )
 parser.add_argument(
-    "--kafka_server", type=str, help="bootstrap server to connect to.",
-    default="127.0.0.1:9092"
+    "--kafka_server",
+    type=str,
+    help="bootstrap server to connect to.",
+    default="127.0.0.1:9092",
 )
 
 args = parser.parse_args()
