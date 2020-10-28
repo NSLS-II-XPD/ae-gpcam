@@ -2,6 +2,15 @@
 Autonomous experiment at XPD using gpCAM.
 
 This repository is largely a copy of https://github.com/bluesky/bluesky-pods.
+These files have been added:
+ * ae-gpcam/Vagrantfile
+ * ae-gpcam/bluesky_config/scripts/analysis_consumer.py
+ * ae-gpcam/launchers/start_analysis_server.sh
+
+These files have been modified:
+ * ae-gpcam/start_acquisition_pod.sh
+ * ae-gpcam/bluesky_config/scripts/adaptive_consumer.py
+ * ae-gpcam/bluesky_config/ipython/profile_default/startup/00-base.py
 
 The autonomous experiment uses three processes:
  * bluesky
