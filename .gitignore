@@ -1,3 +1,6 @@
+TiCu_export/*
+*.tar.gz
+
 .vagrant/
 
 *~
