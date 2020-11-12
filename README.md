@@ -63,12 +63,12 @@ Then start the acquisition pod.
 ```
 host:ae-gpcam user$ vagrant ssh
 [vagrant@localhost ~]$ cd /vagrant/ae_gpcam
-[vagrant@localhost ~]$ sudo bash start_acquisition_pod.sh
+[vagrant@localhost ae_gpcam]$ sudo bash start_acquisition_pod.sh
 ```
 
 Start the analysis server (analogous to xpdan) from inside the VM:
 ```
-[vagrant@localhost ~]$ sudo bash launchers/start_analysis_server.sh
+[vagrant@localhost ae_gpcam]$ sudo bash launchers/start_analysis_server.sh
 ++ pwd
 + podman run --pod acquisition --rm -ti -v /vagrant/ae_gpcam/bluesky_config/scripts:/app -w /app bluesky python3 analysis_consumer.py
 ANALYSIS CONSUMER IS LISTENING ON b'from-RE'
@@ -78,7 +78,7 @@ Open a new terminal and start the adaptive server from inside the VM:
 ```
 host:ae-gpcam user$ vagrant ssh
 [vagrant@localhost ~]$ cd /vagrant/ae_gpcam
-[vagrant@localhost ~]$ sudo bash launchers/start_adaptive_server.sh
+[vagrant@localhost ae_gpcam]$ sudo bash launchers/start_adaptive_server.sh
 ++ pwd
 + podman run --pod acquisition --rm -ti -v /vagrant/ae_gpcam/bluesky_config/scripts:/app -w /app bluesky python3 adaptive_consumer.py
 ADAPTIVE CONSUMER LISTENING ON b'from-analysis'
@@ -88,7 +88,7 @@ Open a new terminal, start bluesky from inside the VM, and run an adaptive plan:
 ```
 host:ae-gpcam user$ vagrant ssh
 [vagrant@localhost ~]$ cd /vagrant/ae_gpcam
-[vagrant@localhost ~]$ sudo bash launch_bluesky_headless.sh
+[vagrant@localhost ae_gpcam]$ sudo bash launch_bluesky_headless.sh
 + '[' '' '!=' '' ']'
 + imagename=bluesky
 ++ pwd
@@ -109,7 +109,7 @@ Open a new terminal, start bluesky from inside the VM, and run a simulated data 
 ```
 host:ae-gpcam user$ vagrant ssh
 [vagrant@localhost ~]$ cd /vagrant/ae_gpcam
-[vagrant@localhost ~]$ sudo bash launch_bluesky_headless.sh
+[vagrant@localhost ae_gpcam]$ sudo bash launch_bluesky_headless.sh
 + '[' '' '!=' '' ']'
 + imagename=bluesky
 ++ pwd
