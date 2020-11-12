@@ -68,7 +68,7 @@ Vagrant.configure("2") do |config|
   config.vm.provision "shell", inline: <<-SHELL
     sudo echo -e "\nX11UseLocalhost no" >> /etc/ssh/sshd_config
     sudo dnf -y update
-    sudo dnf -y install git podman buildah python3 python3-pip
+    sudo dnf -y install gcc git podman buildah python38 python38-devel python38-pip
   SHELL
 
   config.vm.provision "shell", inline: <<-SHELL
@@ -78,10 +78,5 @@ Vagrant.configure("2") do |config|
     sudo bash image_builders/build_caproto_image.sh
     sudo bash image_builders/build_databroker_server_image.sh
     sudo bash image_builders/build_typhos_image.sh
-
-#     python3 -m venv ~/venv
-#     source ~/venv/bin/activate
-#     pip install --upgrade pip wheel
-#     pip install -r bluesky_config/scripts/requirements.txt
   SHELL
 end
