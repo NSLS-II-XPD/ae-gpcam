@@ -28,7 +28,16 @@ These processes communicate using Zero MQ (0MQ) and Redis:
 
 The script `analysis_server.py` is provided to simulate xpdan by simply forwarding documents from the RunEngine to the adaptive server.
 
-### Development Data
+### Run in a VM
+
+An easy way to run all three processes is from within a Vagrant VM.
+A `Vagrantfile` is provided that installs podman and related prerequisites on CentOS 8.
+Install Vagrant and VirtualBox, then clone this repository.
+```
+host:~ user$ git clone https://github.com/NSLS-II-XPD/ae-gpcam.git
+host:~ user$ cd ae-gpcam
+```
+
 Download TiCu_export.tar.gz and unpack it to the `ae-gpcam` directory (on the host, not the Vagrant VM).
 ```
 host:ae-gpcam user$ ls -l
@@ -41,14 +50,10 @@ drwxr-xr-x@ 93 user  staff      2976 Apr 16  2020 TiCu_export
 drwxr-xr-x  15 user  staff       480 Nov 12 13:23 ae_gpcam
 ```
 
-### Run in a VM
-
-An easy way to run all three processes is from within a Vagrant VM.
-A `Vagrantfile` is provided that installs podman and related prerequisites on CentOS 8.
-Once Vagrant and VirtualBox are installed on the host computer and this repository has been cloned, build a VM:
+Now build a VM:
 ```
-cd ae-gpcam
-vagrant up
+host:ae-gpcam user$ cd ae-gpcam
+host:ae-gpcam user$ vagrant up
 ```
 Podman images will be created the first time the VM starts.
 
@@ -56,14 +61,14 @@ Open a terminal and SSH into the VM.
 Change to the shared repository directory.
 Then start the acquisition pod.
 ```
-vagrant ssh
-cd /vagrant/ae_gpcam
-sudo bash start_acquisition_pod.sh
+host:ae-gpcam user$ vagrant ssh
+[vagrant@localhost ~]$ cd /vagrant/ae_gpcam
+[vagrant@localhost ~]$ sudo bash start_acquisition_pod.sh
 ```
 
 Start the analysis server (analogous to xpdan) from inside the VM:
 ```
-sudo bash launchers/start_analysis_server.sh
+[vagrant@localhost ~]$ sudo bash launchers/start_analysis_server.sh
 ++ pwd
 + podman run --pod acquisition --rm -ti -v /vagrant/ae_gpcam/bluesky_config/scripts:/app -w /app bluesky python3 analysis_consumer.py
 ANALYSIS CONSUMER IS LISTENING ON b'from-RE'
@@ -71,9 +76,9 @@ ANALYSIS CONSUMER IS LISTENING ON b'from-RE'
 
 Open a new terminal and start the adaptive server from inside the VM:
 ```
-vagrant ssh
-cd /vagrant/ae_gpcam
-sudo bash launchers/start_adaptive_server.sh
+host:ae-gpcam user$ vagrant ssh
+[vagrant@localhost ~]$ cd /vagrant/ae_gpcam
+[vagrant@localhost ~]$ sudo bash launchers/start_adaptive_server.sh
 ++ pwd
 + podman run --pod acquisition --rm -ti -v /vagrant/ae_gpcam/bluesky_config/scripts:/app -w /app bluesky python3 adaptive_consumer.py
 ADAPTIVE CONSUMER LISTENING ON b'from-analysis'
@@ -81,9 +86,9 @@ ADAPTIVE CONSUMER LISTENING ON b'from-analysis'
 
 Open a new terminal, start bluesky from inside the VM, and run an adaptive plan:
 ```
-vagrant ssh
-cd /vagrant/ae_gpcam
-sudo bash launch_bluesky_headless.sh
+host:ae-gpcam user$ vagrant ssh
+[vagrant@localhost ~]$ cd /vagrant/ae_gpcam
+[vagrant@localhost ~]$ sudo bash launch_bluesky_headless.sh
 + '[' '' '!=' '' ']'
 + imagename=bluesky
 ++ pwd
@@ -102,9 +107,9 @@ In [3]: RE(adaptive_plan([det], {motor: 0}, to_recommender=None, from_recommende
 ### Run sbu_sim
 Open a new terminal, start bluesky from inside the VM, and run a simulated data acquisition run:
 ```
-vagrant ssh
-cd /vagrant/ae_gpcam
-sudo bash launch_bluesky_headless.sh
+host:ae-gpcam user$ vagrant ssh
+[vagrant@localhost ~]$ cd /vagrant/ae_gpcam
+[vagrant@localhost ~]$ sudo bash launch_bluesky_headless.sh
 + '[' '' '!=' '' ']'
 + imagename=bluesky
 ++ pwd
