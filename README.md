@@ -52,7 +52,6 @@ drwxr-xr-x  15 user  staff       480 Nov 12 13:23 ae_gpcam
 
 Now build a VM:
 ```
-host:ae-gpcam user$ cd ae-gpcam
 host:ae-gpcam user$ vagrant up
 ```
 Podman images will be created the first time the VM starts.
