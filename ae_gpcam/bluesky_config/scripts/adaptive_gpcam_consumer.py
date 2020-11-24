@@ -9,18 +9,6 @@ from bluesky_adaptive import per_start
 
 from event_model import RunRouter
 
-from bluesky_kafka import RemoteDispatcher
-
-
-# kafka_dispatcher = RemoteDispatcher(
-#     topics=["adaptive"],
-#     bootstrap_servers="127.0.0.1:9092",
-#     group_id="gpcam-recommender",
-#     # "latest" should always work but
-#     # has been failing on Linux, passing on OSX
-#     consumer_config={"auto.offset.reset": "latest"},
-#     polling_duration=1.0,
-# )
 
 zmq_listening_prefix = b"from-analysis"
 
