@@ -28,11 +28,11 @@ These processes communicate using Zero MQ (0MQ) and Redis:
 
 The script `analysis_server.py` is provided to simulate xpdan by simply forwarding documents from the RunEngine to the adaptive server.
 
-### Run in a VM
+### Run the demonstration in a virtual machine
 
-An easy way to run all three processes is from within a Vagrant VM.
+An easy way to run all three processes is with a Vagrant virtual machine (VM).
 A `Vagrantfile` is provided that installs podman and related prerequisites on CentOS 8.
-Install Vagrant and VirtualBox, then clone this repository.
+Install [Vagrant](vagrantup.com) and [VirtualBox](https://www.virtualbox.org/), then clone this repository.
 ```
 host:~ user$ git clone https://github.com/NSLS-II-XPD/ae-gpcam.git
 host:~ user$ cd ae-gpcam
@@ -50,12 +50,23 @@ drwxr-xr-x@ 93 user  staff      2976 Apr 16  2020 TiCu_export
 drwxr-xr-x  15 user  staff       480 Nov 12 13:23 ae_gpcam
 ```
 
+#### Build a virtual machine with Vagrant
 Now build a VM:
 ```
 host:ae-gpcam user$ vagrant up
 ```
 Podman images will be created the first time the VM starts.
 
+When you are done with this demonstration and want to shut down but not delete the VM use this:
+```
+host:ae-gpcam user$ vagrant halt
+```
+When you are ready to delete the Vagrant VM use this:
+```
+host:ae-gpcam user$ vagrant destroy
+```
+
+#### Start the demonstration processes
 Open a terminal and SSH into the VM.
 Change to the shared repository directory.
 Then start the acquisition pod.
