@@ -23,6 +23,10 @@ def zmq_publish_from_analysis_factory(start_name, start_doc):
     )
 
     def zmq_publish_from_analysis(name, doc):
+        if name == "start":
+            # add batch_count
+            print("adding batch_count=1")
+            doc["batch_count"] = 1
         print(f"analysis consumer publishing {name}:\n{pprint.pformat(doc)}\n")
         zmq_analysis_publisher(name, doc)
 
