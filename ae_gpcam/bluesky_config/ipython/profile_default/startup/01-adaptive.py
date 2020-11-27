@@ -7,6 +7,9 @@ from dataclasses import dataclass, asdict, astuple, field
 from collections import namedtuple, defaultdict
 
 import numpy as np
+import matplotlib.cm as mcm
+import matplotlib.colors as mcolors
+import matplotlib.patches as mpatches
 
 from ophyd import Device, Signal, Component as Cpt
 
@@ -448,7 +451,7 @@ single_data = [
     StripInfo(
         temperature=340,
         annealing_time=450,
-        ti_fractions=[19, 22, 27, 30, 25, 40, 44, 49, 53],
+        ti_fractions=[19, 22, 27, 30, 35, 40, 44, 49, 53],
         start_position=18.5,
         strip_center=0,
     ),
@@ -483,7 +486,7 @@ single_data = [
     StripInfo(
         temperature=400,
         annealing_time=3600,
-        ti_fractions=[19, 22, 25, 30, 35, 59, 45, 50, 55, 60, 65, 69, 73, 77, 79],
+        ti_fractions=[19, 22, 25, 30, 35, 39, 45, 50, 55, 60, 65, 69, 73, 77, 79],
         start_position=5,
         strip_center=-25,
     ),
@@ -506,7 +509,7 @@ single_data = [
         annealing_time=30 * 60,
         ti_fractions=[15, 18, 21, 25, 28, 33, 38, 43, 48, 53, 58, 63, 67, 71, 75],
         start_position=5,
-        strip_center=-30,
+        strip_center=-40,
     ),
 ]
 
@@ -539,3 +542,58 @@ def read_the_first_key(obj):
     else:
         key, *_ = list(reading)
     return reading[key]["value"]
+
+
+def show_layout(strip_list, ax=None, *, cell_size=4.5):
+    if ax is None:
+        import matplotlib.pyplot as plt
+
+        fig, ax = plt.subplots()
+
+    cmap = mcm.get_cmap("magma")
+    norm = mcolors.Normalize(0, 100)
+
+    cells = {}
+    labels = {}
+    for strip in strip_list:
+        cells[strip] = []
+
+        for j, ti_frac in enumerate(strip.ti_fractions):
+            color = cmap(norm(ti_frac))
+            rect = mpatches.Rectangle(
+                (
+                    strip.start_position + j * cell_size,
+                    strip.strip_center - cell_size / 2,
+                ),
+                cell_size,
+                cell_size,
+                color=color,
+            )
+            ax.add_patch(rect)
+            cells[strip].append(
+                ax.text(
+                    strip.start_position + (j + 0.5) * cell_size,
+                    strip.strip_center,
+                    f"{ti_frac}",
+                    ha="center",
+                    va="center",
+                    color="w",
+                )
+            )
+            cells[strip].append(rect)
+
+        labels[strip] = ax.annotate(
+            f"{strip.temperature}°C\n{strip.annealing_time}s",
+            xy=(strip.start_position + (j + 1) * cell_size, strip.strip_center),
+            xytext=(10, 0),
+            textcoords="offset points",
+            va="center",
+            ha="left",
+            clip_on=False,
+        )
+
+    ax.relim()
+    ax.autoscale()
+    ax.figure.tight_layout()
+    ax.spines["right"].set_visible(False)
+    ax.spines["top"].set_visible(False)
