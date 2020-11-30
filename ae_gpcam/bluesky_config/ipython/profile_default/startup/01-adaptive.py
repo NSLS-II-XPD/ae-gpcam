@@ -27,7 +27,7 @@ from queue import Empty
 TransformPair = namedtuple("TransformPair", ["forward", "inverse"])
 
 
-def single_strip_factory(
+def single_strip_transform_factory(
     temperature,
     annealing_time,
     ti_fractions,
@@ -172,7 +172,7 @@ def load_from_json(fname):
     return [StripInfo(**d) for d in data]
 
 
-def single_strip_set_factory(strips, *, cell_size=4.5):
+def single_strip_set_transform_factory(strips, *, cell_size=4.5):
     """
     Generate the forward and reverse transforms for set of strips.
 
@@ -199,7 +199,7 @@ def single_strip_set_factory(strips, *, cell_size=4.5):
     by_strip = {}
 
     for strip in strips:
-        pair = single_strip_factory(*astuple(strip))
+        pair = single_strip_transform_factory(*astuple(strip))
         by_annealing[(strip.temperature, strip.annealing_time)].append((strip, pair))
         by_strip[strip] = pair
 

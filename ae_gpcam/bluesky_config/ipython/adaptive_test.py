@@ -44,7 +44,7 @@ cb, queue = recommender_factory(
     recommender, ["ctrl_Ti", "ctrl_temp", "ctrl_anneal_time"], ["x"]
 )
 
-pair = single_strip_set_factory(single_data)
+pair = single_strip_set_transform_factory(single_data)
 snap_function = snap_factory(single_data, time_tol=5, temp_tol=10, Ti_tol=5)
 
 RE(
