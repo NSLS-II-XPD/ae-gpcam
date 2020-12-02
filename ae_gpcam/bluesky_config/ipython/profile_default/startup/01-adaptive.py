@@ -418,8 +418,8 @@ def adaptive_plan(
             real_target = transform_pair.forward(*target)
 
             # move to the new position
-            target = {m: v for m, v in zip(real_motors, real_target)}
-            motor_position_pairs = itertools.chain(*target.items())
+            motor_target = {m: v for m, v in zip(real_motors, real_target)}
+            motor_position_pairs = itertools.chain(*motor_target.items())
             yield from bps.mov(*motor_position_pairs)
 
             # read back where the motors really are
@@ -433,7 +433,15 @@ def adaptive_plan(
 
             # kick off the next actually measurement!
             uid = yield from take_reading(
-                dets + list(real_motors) + [ctrl], md={**_md, "batch_count": j}
+                dets + list(real_motors) + [ctrl],
+                md={
+                    **_md,
+                    "batch_count": j,
+                    "adaptive": {
+                        "requested": next_point,
+                        "snapped": {k.name: v for k, v in zip(pseudo_axes, target)},
+                    },
+                },
             )
             uids.append(uid)
 
