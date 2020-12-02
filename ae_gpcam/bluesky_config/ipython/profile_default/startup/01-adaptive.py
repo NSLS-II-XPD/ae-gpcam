@@ -418,9 +418,7 @@ def adaptive_plan(
             real_target = transform_pair.forward(*target)
 
             # move to the new position
-            motor_target = {m: v for m, v in zip(real_motors, real_target)}
-            motor_position_pairs = itertools.chain(*motor_target.items())
-            yield from bps.mov(*motor_position_pairs)
+            yield from bps.mov(*itertools.chain(*zip(real_motors, real_target)))
 
             # read back where the motors really are
             real_x = yield from read_the_first_key(x_motor)
