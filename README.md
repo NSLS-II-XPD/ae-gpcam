@@ -21,9 +21,9 @@ The autonomous experiment uses three processes:
 
 These processes communicate using Zero MQ (0MQ) and Redis:
 ```
-  RE -----> 0MQ -----> xpdan -----> 0MQ -----> adaptive_server
-  ^                                               |
-  | <--------- redis <-----<-----<-----<-----<----|
+  RE -----> 0MQ -----> xpdan -----> 0MQ -----> gpcam
+  ^                                              |
+  | <--------- redis <-----<-----<-----<-----<---|
 ```
 
 The script `analysis_server.py` is provided to simulate xpdan by simply forwarding documents from the RunEngine to the adaptive server.
@@ -38,6 +38,7 @@ host:~ user$ git clone https://github.com/NSLS-II-XPD/ae-gpcam.git
 host:~ user$ cd ae-gpcam
 ```
 
+#### Install test data
 Download TiCu_export.tar.gz and unpack it to the `ae-gpcam` directory (on the host, not the Vagrant VM).
 ```
 host:ae-gpcam user$ ls -l
@@ -50,7 +51,16 @@ drwxr-xr-x@ 93 user  staff      2976 Apr 16  2020 TiCu_export
 drwxr-xr-x  15 user  staff       480 Nov 12 13:23 ae_gpcam
 ```
 
-#### Build a virtual machine with Vagrant
+#### Clone gpCAM
+You will need read permission for the gpCAM repository on BitBucket (left as an exercise).
+Clone the gpCAM repository to the host in the same directory as the Vagrantfile. The VM
+will mount the gpCAM source as /vagrant/gpcamv4and5. When the VM is built gpCAM will be 
+installed from source in a conda environment called `gpcam`.
+```
+host:ae-gpcam user$ git clone git@bitbucket.org:MarcusMichaelNoack/gpcamv4and5.git
+```
+
+#### Build a Virtual Machine with Vagrant
 Now build a VM:
 ```
 host:ae-gpcam user$ vagrant up
