@@ -7,14 +7,12 @@ from event_model import compose_run
 from bluesky.callbacks.zmq import RemoteDispatcher
 from bluesky.callbacks.zmq import Publisher as zmqPublisher
 
-# TODO change this to the location on XPD
-zmq_publisher = zmqPublisher("127.0.0.1:4567", prefix=b"roi:")
-
 
 class ROIPicker(DocumentRouter):
-    def __init__(self, publisher):
+    def __init__(self, publisher, peak_location):
         self._pub = publisher
         self.desc_bundle = None
+        self._peak_location = peak_location
 
     def start(self, doc):
         self._source_uid = doc["original_start_uid"]
@@ -61,7 +59,7 @@ class ROIPicker(DocumentRouter):
                 },
             )
             self._pub("descriptor", self.desc_bundle.descriptor_doc)
-        peak_locations = (2.63, 2.7)
+        peak_location = self._peak_location
         out = []
         # TODO look this up!
         # It appears that xpdan does not propogate additional keys, so we will
@@ -71,13 +69,12 @@ class ROIPicker(DocumentRouter):
         at = 5
         temp = 450
         for Q, I in zip(doc["data"]["q"], doc["data"]["mean"]):
-            # TODO add background subtraction
-            # TODO account for dQ in averaging
-            start, stop = np.searchsorted(Q, peak_locations)
-            peak = np.sum(np.array(I[start : stop + 1]))
+
             data = {
-                "I_00": peak,
-                "Q_00": np.mean(peak_locations),
+                "I_00": compute_peak_area(Q, I, *peak_location),
+                # pick the center of the peak as the Q
+                "Q_00": np.mean(peak_location),
+                # mirror out the control values
                 "ctrl_Ti": ti,
                 "ctrl_annealing_time": at,
                 "ctrl_temp": temp,
@@ -93,53 +90,62 @@ class ROIPicker(DocumentRouter):
         self._pub("stop", stop_doc)
 
 
-def PeakAreaCal(data, roi):
+def compute_peak_area(Q, I, q_start, q_stop):
     """
+    Integrated area under a peak with estimated background removed.
+
+    Estimates the background by averaging the 3 values on either side
+    of the peak and subtracting that as a constant from I before
+    integrating.
+
     Parameters
     ----------
-    data : float array
-        data[0] : angle or q
-        data[1] : intensity
-    roi : flow array, region of interest for the angle or q value
-        roi [0] : lower bound of the angle or q value
-        roi [1] : upper bound of the angle or q value
+    Q, I : array
+        The q-values and binned intensity.  Assumed to be same length.
+
+    q_start, q_stop : float
+        The region of q to integrate.  Must be in same units as the Q.
 
     Returns
     -------
-    area_sum : float
-       sum of the area under the peak
+    peak_area : float
+
     """
 
-    # #readout row numbers with q value
-    begin = data.iloc[(data[0] - roi[0]).abs().argsort()[:1]].index.tolist()[0]
-    end = data.iloc[(data[0] - roi[1]).abs().argsort()[:1]].index.tolist()[0]
-
-    # average the intensity of beginning and ending of peak
-    average_begin = (data[1][begin] + data[1][begin - 1] + data[1][begin - 2]) / 3
-    average_end = (data[1][end] + data[1][end + 1] + data[1][end + 2]) / 3
-
-    # calculate the intensity of background
-    background_sum = (average_begin + average_end) * (roi[1] - roi[0]) / 2
-
-    # calculate the intensity of peak
-    dQ = ((data[0][end] - data[0][end - 1]) + (data[0][begin] - data[0][begin - 1])) / 2
-    intensity_sum = sum(data[1][begin : end + 1]) * dQ
-
-    # Calculate the peak area by minus background intensity from total intensity
-    area_sum = intensity_sum - background_sum
-
-    return area_sum
+    # figure out the index of the start and stop of the q
+    # region of interest
+    start, stop = np.searchsorted(Q, (q_start, q_stop))
+    # add one to stop because we want the index after the end
+    # value not the one before
+    stop += 1
+    # pull out the region of interest from I.
+    data_section = I[start:stop]
+    # pull out one more q value than I because we want the bin widths.
+    q_section = Q[start : stop + 1]
+    # compute width of each of the Q bins.
+    dQ = np.diff(q_section)
+    # estimate the background level by averaging the 3 and and 3 I(q) outside of
+    # our ROI in either direction.
+    background = (np.mean(I[start - 3 : start]) + np.mean(I[stop : stop + 3])) / 2
+    # do the integration!
+    return np.sum((data_section - background) * dQ)
 
 
-def filter(name, doc):
+def xpdan_result_picker_factory(zmq_publisher, peak_location):
+    def xpdan_result_picker(name, doc):
+        """"""
+        if doc.get("analysis_stage", "") == "integration":
+            return [ROIPicker(zmq_publisher, peak_location)], []
+        return [], []
 
-    if doc.get("analysis_stage", "") == "integration":
-        return [ROIPicker(zmq_publisher)], []
-    return [], []
+    return xpdan_result_picker
 
 
 # TODO change this to the location on XPD
+zmq_publisher = zmqPublisher("127.0.0.1:4567", prefix=b"from-analysis")
 d = RemoteDispatcher("localhost:5678", prefix=b"an")
-rr = RunRouter([filter])
+# peak_locations = (2.63, 2.7)
+peak_location = (2.98, 3.23)
+rr = RunRouter([xpdan_result_picker_factory(zmq_publisher, peak_location)])
 d.subscribe(rr)
 d.start()
