@@ -1,11 +1,17 @@
+import json
 from queue import Queue
 
 import numpy as np
+import redis
 
 from event_model import RunRouter
 
 from bluesky_adaptive.recommendations import NoRecommendation
 from bluesky_adaptive.utils import extract_event_page
+
+from bluesky.callbacks.zmq import RemoteDispatcher as ZmqRemoteDispatcher
+
+from gpcam import gp_optimizer
 
 
 def recommender_factory(
@@ -15,7 +21,7 @@ def recommender_factory(
     variance_keys,
     *,
     max_count=10,
-    queue=None
+    queue=None,
 ):
     """
     Generate the callback and queue for an Adaptive API backed recommender.
@@ -136,3 +142,48 @@ def recommender_factory(
 
     rr = RunRouter([lambda name, doc: ([callback], [])])
     return rr, queue
+
+
+# this process listens for 0MQ messages with prefix "rr" (roi-reduced)
+zmq_listening_prefix = b"rr"
+
+zmq_dispatcher = ZmqRemoteDispatcher(
+    address=("127.0.0.1", 5678), prefix=zmq_listening_prefix
+)
+
+
+class RedisQueue:
+    "fake just enough of the queue.Queue API on top of redis"
+
+    def __init__(self, client):
+        self.client = client
+
+    def put(self, value):
+        print(f"pushing to redis queue: {value}")
+        self.client.lpush("adaptive", json.dumps(value))
+
+
+redis_queue = RedisQueue(redis.StrictRedis(host="localhost", port=6379, db=0))
+
+gp_optimizer = gp_optimizer.GPOptimizer(
+    input_space_dimension=3,
+    output_space_dimension=1,
+    output_number=1,
+    index_set_bounds=[],
+    hyperparameter_bounds=[],
+)
+
+gpcam_recommender_run_router, _ = recommender_factory(
+    gp_optimizer_obj=gp_optimizer,
+    independent_keys=None,
+    dependent_keys=None,
+    variance_keys=None,
+    max_count=1,
+    queue=redis_queue,
+)
+
+zmq_dispatcher.subscribe(gpcam_recommender_run_router)
+
+
+print(f"ADAPTIVE GPCAM CONSUMER LISTENING ON {zmq_listening_prefix}")
+zmq_dispatcher.start()
