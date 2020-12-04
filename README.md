@@ -21,9 +21,9 @@ The autonomous experiment uses three processes:
 
 These processes communicate using Zero MQ (0MQ) and Redis:
 ```
-  RE -----> 0MQ -----> xpdan -----> 0MQ -----> gpcam
-  ^                                              |
-  | <--------- redis <-----<-----<-----<-----<---|
+  RE ---> 0MQ "raw" ---> xpdan ---> 0MQ "an" --->---->|
+  ^                                                   |
+  |<--- redis <--- gpcam <--- 0MQ "rr" roi_reducer <--|
 ```
 
 The script `analysis_server.py` is provided to simulate xpdan by simply forwarding documents from the RunEngine to the adaptive server.
