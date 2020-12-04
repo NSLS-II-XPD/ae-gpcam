@@ -2,22 +2,12 @@
 Autonomous experiment at XPD using gpCAM.
 
 This repository is largely a copy of https://github.com/bluesky/bluesky-pods.
-These files have been added:
- * ae_gpcam/Vagrantfile
- * ae_gpcam/bluesky_config/scripts/analysis_consumer.py
- * ae_gpcam/launchers/start_analysis_server.sh
 
-These files have been modified:
- * ae_gpcam/start_acquisition_pod.sh
- * ae_gpcam/launch_bluesky_headless.sh
- * ae_gpcam/bluesky_config/scripts/adaptive_consumer.py
- * ae_gpcam/bluesky_config/ipython/profile_default/startup/00-base.py
- * ae_gpcam/image_builders/build_bluesky_image.sh
-
-The autonomous experiment uses three processes:
+The autonomous experiment uses four processes:
  * bluesky
  * xpdan
- * adaptive server
+ * ROI reduction server
+ * adaptive gpCAM server
 
 These processes communicate using Zero MQ (0MQ) and Redis:
 ```
@@ -26,7 +16,8 @@ These processes communicate using Zero MQ (0MQ) and Redis:
   |<--- redis <--- gpcam <--- 0MQ "rr" roi_reducer <--|
 ```
 
-The script `analysis_server.py` is provided to simulate xpdan by simply forwarding documents from the RunEngine to the adaptive server.
+The script `not_xpdan_server.py` is provided to simulate xpdan by simply forwarding
+documents from the RunEngine to the ROI reduction server.
 
 ### Run the demonstration in a virtual machine
 
@@ -86,21 +77,31 @@ host:ae-gpcam user$ vagrant ssh
 [vagrant@localhost ae_gpcam]$ sudo bash start_acquisition_pod.sh
 ```
 
-Start the analysis server (analogous to xpdan) from inside the VM:
+Start the not_xpdan server (analogous to xpdan) from inside the VM:
 ```
-[vagrant@localhost ae_gpcam]$ sudo bash launchers/start_analysis_server.sh
+[vagrant@localhost ae_gpcam]$ sudo bash launchers/start_not_xpdan_server.sh
 ++ pwd
-+ podman run --pod acquisition --rm -ti -v /vagrant/ae_gpcam/bluesky_config/scripts:/app -w /app bluesky python3 analysis_consumer.py
++ podman run --pod acquisition --rm -ti -v /vagrant/ae_gpcam/bluesky_config/scripts:/app -w /app bluesky python3 not_xpdan_consumer.py
 ANALYSIS CONSUMER IS LISTENING ON b'from-RE'
 ```
 
-Open a new terminal and start the adaptive server from inside the VM:
+Open a new terminal and start the ROI reduction server from inside the VM:
 ```
 host:ae-gpcam user$ vagrant ssh
 [vagrant@localhost ~]$ cd /vagrant/ae_gpcam
-[vagrant@localhost ae_gpcam]$ sudo bash launchers/start_adaptive_server.sh
+[vagrant@localhost ae_gpcam]$ sudo bash launchers/start_roi_reduction_server.sh
 ++ pwd
-+ podman run --pod acquisition --rm -ti -v /vagrant/ae_gpcam/bluesky_config/scripts:/app -w /app bluesky python3 adaptive_consumer.py
++ podman run --pod acquisition --rm -ti -v /vagrant/ae_gpcam/bluesky_config/scripts:/app -w /app bluesky python3 roi_reduction_consumer.py
+ADAPTIVE CONSUMER LISTENING ON b'from-analysis'
+```
+
+Open a new terminal and start the adaptive gpcam server from inside the VM:
+```
+host:ae-gpcam user$ vagrant ssh
+[vagrant@localhost ~]$ cd /vagrant/ae_gpcam
+[vagrant@localhost ae_gpcam]$ sudo bash launchers/start_adaptive_gpcam_server.sh
+++ pwd
++ podman run --pod acquisition --rm -ti -v /vagrant/ae_gpcam/bluesky_config/scripts:/app -w /app bluesky python3 adaptive_gpcam_consumer.py
 ADAPTIVE CONSUMER LISTENING ON b'from-analysis'
 ```
 
