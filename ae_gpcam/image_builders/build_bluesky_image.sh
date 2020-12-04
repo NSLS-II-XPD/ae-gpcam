@@ -18,8 +18,9 @@ buildah run $container -- pip3 install git+https://github.com/tacaswell/sbu_sim.
 # is difficult to install using pip
 # assume gpcam repository has been cloned to /vagrant
 buildah run $container -- dnf -y install conda
-buildah run $container -- conda create -n gpcam python=3.7
-buildah run $container -- conda install -n gpcam numba
+buildah run $container -- conda create --yes --quiet --name gpcam
+buildah run $container -- conda install --yes --quiet --name gpcam numba
+buildah run $container -- /root/.conda/envs/gpcam/bin/pip install git+https://github.com/bluesky/bluesky-adaptive.git@main#egg=bluesky-adaptive
 buildah run -v /vagrant/gpcamv4and5:/usr/local/share/gpcam $container -- /root/.conda/envs/gpcam/bin/pip install -e /usr/local/share/gpcam
 
 buildah run $container -- pip3 uninstall --yes pyepics
