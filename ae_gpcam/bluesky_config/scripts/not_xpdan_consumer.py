@@ -6,14 +6,15 @@ from bluesky.callbacks.zmq import Publisher as ZmqPublisher
 from event_model import RunRouter
 
 
-zmq_listening_prefix = b"from-RE"
-
+zmq_listening_prefix = b"raw"
 zmq_dispatcher = ZmqRemoteDispatcher(
     address=("127.0.0.1", 5678), prefix=zmq_listening_prefix
 )
 
+# publish 0MQ messages with xpdan's prefix
+zmq_publishing_prefix = b"an"
 zmq_analysis_publisher = ZmqPublisher(
-    address=("127.0.0.1", 4567), prefix=b"from-analysis"
+    address=("127.0.0.1", 4567), prefix=zmq_publishing_prefix
 )
 
 
@@ -35,5 +36,6 @@ def zmq_publish_from_analysis_factory(start_name, start_doc):
 
 zmq_dispatcher.subscribe(RunRouter(factories=[zmq_publish_from_analysis_factory]))
 
-print(f"ANALYSIS CONSUMER IS LISTENING ON {zmq_listening_prefix}")
+print(f"NOT XPDAN CONSUMER IS LISTENING ON {zmq_listening_prefix}")
+print(f"AND PUBLISHING ON {zmq_publishing_prefix}")
 zmq_dispatcher.start()
