@@ -73,10 +73,10 @@ Vagrant.configure("2") do |config|
 
   config.vm.provision "shell", inline: <<-SHELL
     cd /vagrant/ae_gpcam
-    sudo bash image_builders/build_bluesky_base_image.sh
-    sudo bash image_builders/build_bluesky_image.sh
-    sudo bash image_builders/build_caproto_image.sh
-    sudo bash image_builders/build_databroker_server_image.sh
-    sudo bash image_builders/build_typhos_image.sh
+    time sudo bash image_builders/build_bluesky_base_image.sh
+    time sudo bash image_builders/build_bluesky_image.sh
+    time sudo bash image_builders/build_caproto_image.sh
+    time sudo bash image_builders/build_databroker_server_image.sh
+    time sudo bash image_builders/build_typhos_image.sh
   SHELL
 end
