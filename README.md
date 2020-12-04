@@ -54,7 +54,7 @@ drwxr-xr-x  15 user  staff       480 Nov 12 13:23 ae_gpcam
 #### Clone gpCAM
 You will need read permission for the gpCAM repository on BitBucket (left as an exercise).
 Clone the gpCAM repository to the host in the same directory as the Vagrantfile. The VM
-will mount the gpCAM source as /vagrant/gpcamv4and5. When the VM is built gpCAM will be 
+will mount the gpCAM source as /vagrant/gpcamv4and5. When the VM is built gpCAM will be
 installed from source in a conda environment called `gpcam`.
 ```
 host:ae-gpcam user$ git clone git@bitbucket.org:MarcusMichaelNoack/gpcamv4and5.git
@@ -74,6 +74,19 @@ host:ae-gpcam user$ vagrant halt
 When you are ready to delete the Vagrant VM use this:
 ```
 host:ae-gpcam user$ vagrant destroy
+```
+
+If when starting up for the first time you get errors implying you can
+not vboxfs is not available, you may need to upgrade/install the
+kernel headers so that the "Guest Extensions" will build in the guest.
+This supports important functionality like mounting directories from
+the host into the guest.
+
+```
+host:ae-gpcam user$ vagrant ssh
+[vagrant@localhost ~]$ sudo yum install kernel kernel-devel kernel-headers gcc make perl elfutils-libelf-devel bzip2 tar -y
+host:ae-gpcam user$ vagrant halt
+host:ae-gpcam user$ vagrant up
 ```
 
 #### Start the demonstration processes
