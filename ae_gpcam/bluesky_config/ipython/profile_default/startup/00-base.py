@@ -10,7 +10,6 @@ from bluesky import RunEngine
 
 from bluesky.callbacks.best_effort import BestEffortCallback
 from bluesky.callbacks.zmq import Publisher as zmqPublisher
-from bluesky_kafka import Publisher as kafkaPublisher
 
 import databroker
 import happi.loader
@@ -30,19 +29,8 @@ db = databroker.catalog["MAD"]
 RE = RunEngine()
 bec = BestEffortCallback()
 
-zmq_publisher = zmqPublisher(address="127.0.0.1:4567", prefix=b"from-RE")
-
-# kafka_publisher = kafkaPublisher(
-#     topic="mad.bluesky.documents",
-#     bootstrap_servers="127.0.0.1:29092",
-#     key="bluesky-pods",
-#     # work with a single broker
-#     producer_config={
-#         "acks": 1,
-#         "enable.idempotence": False,
-#         "request.timeout.ms": 5000,
-#     },
-# )
+# xpdan listens for 0MQ messages with prefix "raw"
+zmq_publisher = zmqPublisher(address="127.0.0.1:4567", prefix=b"raw")
 
 
 RE.subscribe(zmq_publisher)
