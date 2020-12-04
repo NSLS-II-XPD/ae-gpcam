@@ -132,20 +132,26 @@ def compute_peak_area(Q, I, q_start, q_stop):
 
 
 def xpdan_result_picker_factory(zmq_publisher, peak_location):
-    def xpdan_result_picker(name, doc):
-        """"""
-        if doc.get("analysis_stage", "") == "integration":
+    def xpdan_result_picker(name, start_doc):
+        print(f"analysis stage: {start_doc.get('analysis_stage')}")
+        if start_doc.get("analysis_stage", "") == "integration":
             return [ROIPicker(zmq_publisher, peak_location)], []
         return [], []
 
     return xpdan_result_picker
 
 
-# TODO change this to the location on XPD
-zmq_publisher = zmqPublisher("127.0.0.1:4567", prefix=b"from-analysis")
-d = RemoteDispatcher("localhost:5678", prefix=b"an")
+# this process listens for 0MQ messages with prefix "an" (from xpdan)
+zmq_listening_prefix = b"an"
+d = RemoteDispatcher("localhost:5678", prefix=zmq_listening_prefix)
+
+zmq_publishing_prefix = b"rr"
+zmq_publisher = zmqPublisher("127.0.0.1:4567", prefix=zmq_publishing_prefix)
 # peak_locations = (2.63, 2.7)
 peak_location = (2.98, 3.23)
 rr = RunRouter([xpdan_result_picker_factory(zmq_publisher, peak_location)])
 d.subscribe(rr)
+
+print(f"ROI REDUCTION CONSUMER IS LISTENING ON {zmq_listening_prefix}")
+print(f"AND PUBLISHING ON {zmq_publishing_prefix}")
 d.start()
