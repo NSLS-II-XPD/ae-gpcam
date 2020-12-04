@@ -10,7 +10,8 @@ from bluesky_adaptive import per_start
 from event_model import RunRouter
 
 
-zmq_listening_prefix = b"from-analysis"
+# this process listens for 0MQ messages with prefix "rr" (roi-reduced)
+zmq_listening_prefix = b"rr"
 
 zmq_dispatcher = ZmqRemoteDispatcher(
     address=("127.0.0.1", 5678), prefix=zmq_listening_prefix
