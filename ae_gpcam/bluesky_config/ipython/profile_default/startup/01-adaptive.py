@@ -377,20 +377,17 @@ def rocking_ct(dets, exposure, motor, start, stop, *, md=None):
     _md = {"sp": sp, **{f"sp_{k}": v for k, v in sp.items()}}
     _md.update(md)
 
-    def inner():
-        @bpp.reset_positions_decorator(motor.velocity)
-        def per_shot(dets):
-            nonlocal start, stop
-            yield from bps.mv(motor.velocity, abs(stop - start) / exposure)
-            gp = short_uid("rocker")
-            yield from bps.abs_set(motor, stop, group=gp)
-            yield from bps.trigger_and_read(dets)
-            yield from bps.wait(group=gp)
-            start, stop = stop, start
+    @bpp.reset_positions_decorator(motor.velocity)
+    def per_shot(dets):
+        nonlocal start, stop
+        yield from bps.mv(motor.velocity, abs(stop - start) / exposure)
+        gp = short_uid("rocker")
+        yield from bps.abs_set(motor, stop, group=gp)
+        yield from bps.trigger_and_read(dets)
+        yield from bps.wait(group=gp)
+        start, stop = stop, start
 
-        return (yield from bp.count(dets, md=_md, per_shot=per_shot))
-
-    return (yield from inner())
+    return (yield from bp.count(dets, md=_md, per_shot=per_shot))
 
 
 def adaptive_plan(
