@@ -377,8 +377,8 @@ def rocking_ct(dets, exposure, motor, start, stop, *, md=None):
     _md = {"sp": sp, **{f"sp_{k}": v for k, v in sp.items()}}
     _md.update(md)
 
-    @bpp.reset_positions_decorator(motor.velocity)
     def inner():
+        @bpp.reset_positions_decorator(motor.velocity)
         def per_shot(dets):
             nonlocal start, stop
             yield from bps.mv(motor.velocity, abs(stop - start) / exposure)
