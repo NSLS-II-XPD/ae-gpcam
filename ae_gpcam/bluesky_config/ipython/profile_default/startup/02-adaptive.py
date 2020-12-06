@@ -14,9 +14,8 @@ from bluesky.utils import short_uid
 from queue import Empty
 
 
-def rocking_ct(dets, exposure, motor, start, stop, *, md=None):
-    """A minimal wrapper around count that adjusts exposure time."""
-    md = md or {}
+def _xpd_pre_plan(dets, exposure):
+    """Handle detector exposure time + xpdan required metadata"""
 
     def configure_area_det(det, exposure):
         '''Configure an area detector in "continuous mode"'''
@@ -95,7 +94,15 @@ def rocking_ct(dets, exposure, motor, start, stop, *, md=None):
 
     # update md
     _md = {"sp": sp, **{f"sp_{k}": v for k, v in sp.items()}}
-    _md.update(md)
+
+    return _md
+
+
+def rocking_ct(dets, exposure, motor, start, stop, *, num=1, md=None):
+    """Take a count while "rocking" the y-position"""
+    _md = md or {}
+    sp_md = yield from _xpd_pre_plan(dets, exposure)
+    _md.update(sp_md)
 
     @bpp.reset_positions_decorator([motor.velocity])
     def per_shot(dets):
@@ -107,7 +114,16 @@ def rocking_ct(dets, exposure, motor, start, stop, *, md=None):
         yield from bps.wait(group=gp)
         start, stop = stop, start
 
-    return (yield from bp.count(dets, md=_md, per_shot=per_shot))
+    return (yield from bp.count(dets, md=_md, per_shot=per_shot, num=num))
+
+
+def stepping_ct(dets, exposure, motor, start, stop, *, md=None, num=3):
+    """Take data at several points along the y-direction"""
+    _md = md or {}
+    sp_md = yield from _xpd_pre_plan(dets, exposure)
+    _md.update(sp_md)
+
+    return (yield from bp.scan(dets, motor, start, stop, num, md=_md))
 
 
 def adaptive_plan(
@@ -122,6 +138,9 @@ def adaptive_plan(
     snap_function=None,
     reccomender_timeout=1,
     exposure=30,
+    take_data=rocking_ct,
+    num=None,
+    rocking_range=2,
 ):
     """
     Execute an adaptive scan using an inter-run recommendation engine.
@@ -207,9 +226,24 @@ def adaptive_plan(
     # queue
     first_point = {m.name: v for m, v in zip(pseudo_axes, first_point)}
 
-    _md = {"batch_id": str(uuid.uuid4())}
+    _md = {
+        "batch_id": str(uuid.uuid4()),
+        "ticu_adaptive": {
+            "rocking_range": rocking_range,
+            "take_data": take_data.__name__,
+            "snapped": snap_function is not None,
+            "snap_tolerance": (
+                getattr(snap_function, "tols") if snap_function is not None else {}
+            ),
+            "num": num if num is not None else "None",
+        },
+    }
 
     _md.update(md or {})
+
+    take_data_kwargs = {}
+    if num is not None:
+        take_data_kwargs["num"] = num
 
     @bpp.subs_decorator(to_recommender)
     def gp_inner_plan():
@@ -244,25 +278,27 @@ def adaptive_plan(
             yield from bps.mv(*itertools.chain(*zip(pseudo_axes, pseudo_target)))
 
             # kick off the next actually measurement!
-            uid = yield from rocking_ct(
+            uid = yield from take_data(
                 dets + list(real_motors) + [ctrl],
                 exposure,
                 y_motor,
-                real_y - 2,
-                real_y + 2,
+                real_y - rocking_range,
+                real_y + rocking_range,
                 md={
                     **_md,
                     "batch_count": j,
-                    "adaptive": {
+                    "adaptive_step": {
                         "requested": next_point,
                         "snapped": {k.name: v for k, v in zip(pseudo_axes, target)},
                     },
                 },
+                **take_data_kwargs,
             )
             uids.append(uid)
 
             # ask the reccomender what to do next
             next_point = from_recommender.get(timeout=reccomender_timeout)
+            print(f"{next_point=}")
             if next_point is None:
                 return
 

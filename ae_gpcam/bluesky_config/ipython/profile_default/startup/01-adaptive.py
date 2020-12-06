@@ -248,6 +248,7 @@ def snap_factory(strip_list, *, temp_tol=None, time_tol=None, Ti_tol=None):
           def snap(Ti, temperature, time):
               returns snapped_Ti, snapped_temperature, snapped_time
     """
+
     # make local copy to be safe!
     strips = tuple(strip_list)
 
@@ -285,6 +286,12 @@ def snap_factory(strip_list, *, temp_tol=None, time_tol=None, Ti_tol=None):
         best_Ti = np.clip(Ti, best.ti_min, best.ti_max)
 
         return best_Ti, best.temperature, best.annealing_time
+
+    snap.tols = {
+        k: v
+        for k, v in zip(["temp", "time", "Ti"], [temp_tol, time_tol, Ti_tol])
+        if v is not None
+    }
 
     return snap
 
