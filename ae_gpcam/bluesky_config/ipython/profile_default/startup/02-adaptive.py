@@ -1,0 +1,302 @@
+"""Plan for running pgcam AE with a gradient TiCu sample."""
+
+import uuid
+import itertools
+
+import numpy as np
+
+from ophyd import Device, Signal, Component as Cpt
+
+import bluesky.preprocessors as bpp
+import bluesky.plan_stubs as bps
+import bluesky.plans as bp
+from bluesky.utils import short_uid
+from queue import Empty
+
+
+def rocking_ct(dets, exposure, motor, start, stop, *, md=None):
+    """A minimal wrapper around count that adjusts exposure time."""
+    md = md or {}
+
+    def configure_area_det(det, exposure):
+        '''Configure an area detector in "continuous mode"'''
+
+        def _check_mini_expo(exposure, acq_time):
+            if exposure < acq_time:
+                raise ValueError(
+                    "WARNING: total exposure time: {}s is shorter "
+                    "than frame acquisition time {}s\n"
+                    "you have two choices:\n"
+                    "1) increase your exposure time to be at least"
+                    "larger than frame acquisition time\n"
+                    "2) increase the frame rate, if possible\n"
+                    "    - to increase exposure time, simply resubmit"
+                    " the ScanPlan with a longer exposure time\n"
+                    "    - to increase frame-rate/decrease the"
+                    " frame acquisition time, please use the"
+                    " following command:\n"
+                    "    >>> {} \n then rerun your ScanPlan definition"
+                    " or rerun the xrun.\n"
+                    "Note: by default, xpdAcq recommends running"
+                    "the detector at its fastest frame-rate\n"
+                    "(currently with a frame-acquisition time of"
+                    "0.1s)\n in which case you cannot set it to a"
+                    "lower value.".format(
+                        exposure,
+                        acq_time,
+                        ">>> glbl['frame_acq_time'] = 0.5  #set" " to 0.5s",
+                    )
+                )
+
+        # todo make
+        ret = yield from bps.read(det.cam.acquire_time)
+        if ret is None:
+            acq_time = 1
+        else:
+            acq_time = ret[det.cam.acquire_time.name]["value"]
+        _check_mini_expo(exposure, acq_time)
+        if hasattr(det, "images_per_set"):
+            # compute number of frames
+            num_frame = np.ceil(exposure / acq_time)
+            yield from bps.mov(det.images_per_set, num_frame)
+        else:
+            # The dexela detector does not support `images_per_set` so we just
+            # use whatever the user asks for as the thing
+            # TODO: maybe put in warnings if the exposure is too long?
+            num_frame = 1
+        computed_exposure = num_frame * acq_time
+
+        # print exposure time
+        print(
+            "INFO: requested exposure time = {} - > computed exposure time"
+            "= {}".format(exposure, computed_exposure)
+        )
+        return num_frame, acq_time, computed_exposure
+
+    # setting up area_detector
+    (ad,) = (d for d in dets if hasattr(d, "cam"))
+    (num_frame, acq_time, computed_exposure) = yield from configure_area_det(
+        ad, exposure
+    )
+
+    sp = {
+        "time_per_frame": acq_time,
+        "num_frames": num_frame,
+        "requested_exposure": exposure,
+        "computed_exposure": computed_exposure,
+        "type": "ct",
+        "uid": str(uuid.uuid4()),
+        "plan_name": "ct",
+    }
+
+    # update md
+    _md = {"sp": sp, **{f"sp_{k}": v for k, v in sp.items()}}
+    _md.update(md)
+
+    @bpp.reset_positions_decorator(motor.velocity)
+    def per_shot(dets):
+        nonlocal start, stop
+        yield from bps.mv(motor.velocity, abs(stop - start) / exposure)
+        gp = short_uid("rocker")
+        yield from bps.abs_set(motor, stop, group=gp)
+        yield from bps.trigger_and_read(dets)
+        yield from bps.wait(group=gp)
+        start, stop = stop, start
+
+    return (yield from bp.count(dets, md=_md, per_shot=per_shot))
+
+
+def adaptive_plan(
+    dets,
+    first_point,
+    *,
+    to_recommender,
+    from_recommender,
+    md=None,
+    transform_pair,
+    real_motors,
+    snap_function=None,
+    reccomender_timeout=1,
+    exposure=30,
+):
+    """
+    Execute an adaptive scan using an inter-run recommendation engine.
+
+    Parameters
+    ----------
+    dets : List[OphydObj]
+       The detector to read at each point.  The dependent keys that the
+       recommendation engine is looking for must be provided by these
+       devices.
+
+    first_point : tuple[float, int, int]
+       The first point of the scan.  These values will be passed to the
+       forward function and the objects passed in real_motors will be moved.
+
+       The order is (Ti_frac, temperature, annealing_time)
+
+    to_recommender : Callable[document_name: str, document: dict]
+       This is the callback that will be registered to the RunEngine.
+
+       The expected contract is for each event it will place either a
+       dict mapping independent variable to recommended value or None.
+
+       This plan will either move to the new position and take data
+       if the value is a dict or end the run if `None`
+
+    from_recommender : Queue
+       The consumer side of the Queue that the recommendation engine is
+       putting the recommendations onto.
+
+    md : dict[str, Any], optional
+       Any extra meta-data to put in the Start document
+
+    take_reading : plan
+        function to do the actual acquisition ::
+
+           def take_reading(dets, md={}):
+                yield from ...
+
+        Callable[List[OphydObj], Optional[Dict[str, Any]]] -> Generator[Msg]
+
+        This plan must generate exactly 1 Run
+
+        Defaults to `bluesky.plans.count`
+
+    transform_pair : TransformPair
+
+       Expected to have two attributes 'forward' and 'inverse'
+
+       The forward transforms from "data coordinates" (Ti fraction,
+       temperature, annealing time) to "beam line" (x/y motor
+       position) coordinates ::
+
+          def forward(Ti, temperature, time):
+               return x, y
+
+       The inverse transforms from "beam line" (x/y motor position)
+       coordinates to "data coordinates" (Ti fraction, temperature,
+       annealing time) ::
+
+          def inverse(x, y):
+               return Ti_frac, temperature, annealing_time
+
+    snap_function : Callable, optional
+        "snaps" the requested measurement to the nearest available point ::
+
+           def snap(Ti, temperature, time):
+               returns snapped_Ti, snapped_temperature, snapped_time
+
+    reccomender_timeout : float, optional
+
+        How long to wait for the reccomender to respond before giving
+        it up for dead.
+
+    """
+
+    # unpack the real motors
+    x_motor, y_motor = real_motors
+    # make the soft pseudo axis
+    ctrl = Control(name="ctrl")
+    pseudo_axes = tuple(getattr(ctrl, k) for k in ctrl.component_names)
+    # convert the first_point variable to from we will be getting from
+    # queue
+    first_point = {m.name: v for m, v in zip(pseudo_axes, first_point)}
+
+    _md = {"batch_id": str(uuid.uuid4())}
+
+    _md.update(md or {})
+
+    @bpp.subs_decorator(to_recommender)
+    def gp_inner_plan():
+        # drain the queue in case there is anything left over from a previous
+        # run
+        while True:
+            try:
+                from_recommender.get(block=False)
+            except Empty:
+                break
+        uids = []
+        next_point = first_point
+        for j in itertools.count():
+            # extract the target position as a tuple
+            target = tuple(next_point[k.name] for k in pseudo_axes)
+            # if we have a snapping function use it
+            if snap_function is not None:
+                target = snap_function(*target)
+            # compute the real target
+            real_target = transform_pair.forward(*target)
+
+            # move to the new position
+            yield from bps.mov(*itertools.chain(*zip(real_motors, real_target)))
+
+            # read back where the motors really are
+            real_x = yield from _read_the_first_key(x_motor)
+            real_y = yield from _read_the_first_key(y_motor)
+
+            # compute the new (actual) pseudo positions
+            pseudo_target = transform_pair.inverse(real_x, real_y)
+            # and set our local synthetic object to them
+            yield from bps.mv(*itertools.chain(*zip(pseudo_axes, pseudo_target)))
+
+            # kick off the next actually measurement!
+            uid = yield from rocking_ct(
+                dets + list(real_motors) + [ctrl],
+                exposure,
+                y_motor,
+                real_y - 2,
+                real_y + 2,
+                md={
+                    **_md,
+                    "batch_count": j,
+                    "adaptive": {
+                        "requested": next_point,
+                        "snapped": {k.name: v for k, v in zip(pseudo_axes, target)},
+                    },
+                },
+            )
+            uids.append(uid)
+
+            # ask the reccomender what to do next
+            next_point = from_recommender.get(timeout=reccomender_timeout)
+            if next_point is None:
+                return
+
+        return uids
+
+    return (yield from gp_inner_plan())
+
+
+class SignalWithUnits(Signal):
+    """Soft signal with units tacked on."""
+
+    def __init__(self, *args, units, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._units = units
+
+    def describe(self):
+        ret = super().describe()
+        ret[self.name]["units"] = self._units
+        ret[self.name]["source"] = "derived"
+        return ret
+
+
+class Control(Device):
+    """Soft device to inject computed pseudo positions."""
+
+    Ti = Cpt(SignalWithUnits, value=0, units="percent TI", kind="hinted")
+    temp = Cpt(SignalWithUnits, value=0, units="degrees C", kind="hinted")
+    anneal_time = Cpt(SignalWithUnits, value=0, units="s", kind="hinted")
+
+
+def _read_the_first_key(obj):
+    """Helper to get 'the right' reading."""
+    reading = yield from bps.read(obj)
+    if reading is None:
+        return None
+    hints = obj.hints.get("fields", [])
+    if len(hints):
+        key, *_ = hints
+    else:
+        key, *_ = list(reading)
+    return reading[key]["value"]

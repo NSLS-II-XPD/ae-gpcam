@@ -1,7 +1,5 @@
-"""Plan for running pgcam AE with a gradient TiCu sample."""
+"""Structures and helpers to defined sample layout."""
 
-import uuid
-import itertools
 import json
 from dataclasses import dataclass, asdict, astuple, field
 from collections import namedtuple, defaultdict
@@ -11,13 +9,6 @@ import matplotlib.cm as mcm
 import matplotlib.colors as mcolors
 import matplotlib.patches as mpatches
 
-from ophyd import Device, Signal, Component as Cpt
-
-import bluesky.preprocessors as bpp
-import bluesky.plan_stubs as bps
-import bluesky.plans as bp
-from bluesky.utils import short_uid
-from queue import Empty
 
 # These terms match the pseudo positioner code in ophyd and are standard
 # in motion control.
@@ -298,260 +289,7 @@ def snap_factory(strip_list, *, temp_tol=None, time_tol=None, Ti_tol=None):
     return snap
 
 
-def rocking_ct(dets, exposure, motor, start, stop, *, md=None):
-    """A minimal wrapper around count that adjusts exposure time."""
-    md = md or {}
-
-    def configure_area_det(det, exposure):
-        '''Configure an area detector in "continuous mode"'''
-
-        def _check_mini_expo(exposure, acq_time):
-            if exposure < acq_time:
-                raise ValueError(
-                    "WARNING: total exposure time: {}s is shorter "
-                    "than frame acquisition time {}s\n"
-                    "you have two choices:\n"
-                    "1) increase your exposure time to be at least"
-                    "larger than frame acquisition time\n"
-                    "2) increase the frame rate, if possible\n"
-                    "    - to increase exposure time, simply resubmit"
-                    " the ScanPlan with a longer exposure time\n"
-                    "    - to increase frame-rate/decrease the"
-                    " frame acquisition time, please use the"
-                    " following command:\n"
-                    "    >>> {} \n then rerun your ScanPlan definition"
-                    " or rerun the xrun.\n"
-                    "Note: by default, xpdAcq recommends running"
-                    "the detector at its fastest frame-rate\n"
-                    "(currently with a frame-acquisition time of"
-                    "0.1s)\n in which case you cannot set it to a"
-                    "lower value.".format(
-                        exposure,
-                        acq_time,
-                        ">>> glbl['frame_acq_time'] = 0.5  #set" " to 0.5s",
-                    )
-                )
-
-        # todo make
-        ret = yield from bps.read(det.cam.acquire_time)
-        if ret is None:
-            acq_time = 1
-        else:
-            acq_time = ret[det.cam.acquire_time.name]["value"]
-        _check_mini_expo(exposure, acq_time)
-        if hasattr(det, "images_per_set"):
-            # compute number of frames
-            num_frame = np.ceil(exposure / acq_time)
-            yield from bps.mov(det.images_per_set, num_frame)
-        else:
-            # The dexela detector does not support `images_per_set` so we just
-            # use whatever the user asks for as the thing
-            # TODO: maybe put in warnings if the exposure is too long?
-            num_frame = 1
-        computed_exposure = num_frame * acq_time
-
-        # print exposure time
-        print(
-            "INFO: requested exposure time = {} - > computed exposure time"
-            "= {}".format(exposure, computed_exposure)
-        )
-        return num_frame, acq_time, computed_exposure
-
-    # setting up area_detector
-    (ad,) = (d for d in dets if hasattr(d, "cam"))
-    (num_frame, acq_time, computed_exposure) = yield from configure_area_det(
-        ad, exposure
-    )
-
-    sp = {
-        "time_per_frame": acq_time,
-        "num_frames": num_frame,
-        "requested_exposure": exposure,
-        "computed_exposure": computed_exposure,
-        "type": "ct",
-        "uid": str(uuid.uuid4()),
-        "plan_name": "ct",
-    }
-
-    # update md
-    _md = {"sp": sp, **{f"sp_{k}": v for k, v in sp.items()}}
-    _md.update(md)
-
-    @bpp.reset_positions_decorator(motor.velocity)
-    def per_shot(dets):
-        nonlocal start, stop
-        yield from bps.mv(motor.velocity, abs(stop - start) / exposure)
-        gp = short_uid("rocker")
-        yield from bps.abs_set(motor, stop, group=gp)
-        yield from bps.trigger_and_read(dets)
-        yield from bps.wait(group=gp)
-        start, stop = stop, start
-
-    return (yield from bp.count(dets, md=_md, per_shot=per_shot))
-
-
-def adaptive_plan(
-    dets,
-    first_point,
-    *,
-    to_recommender,
-    from_recommender,
-    md=None,
-    transform_pair,
-    real_motors,
-    snap_function=None,
-    reccomender_timeout=1,
-    exposure=30,
-):
-    """
-    Execute an adaptive scan using an inter-run recommendation engine.
-
-    Parameters
-    ----------
-    dets : List[OphydObj]
-       The detector to read at each point.  The dependent keys that the
-       recommendation engine is looking for must be provided by these
-       devices.
-
-    first_point : tuple[float, int, int]
-       The first point of the scan.  These values will be passed to the
-       forward function and the objects passed in real_motors will be moved.
-
-       The order is (Ti_frac, temperature, annealing_time)
-
-    to_recommender : Callable[document_name: str, document: dict]
-       This is the callback that will be registered to the RunEngine.
-
-       The expected contract is for each event it will place either a
-       dict mapping independent variable to recommended value or None.
-
-       This plan will either move to the new position and take data
-       if the value is a dict or end the run if `None`
-
-    from_recommender : Queue
-       The consumer side of the Queue that the recommendation engine is
-       putting the recommendations onto.
-
-    md : dict[str, Any], optional
-       Any extra meta-data to put in the Start document
-
-    take_reading : plan
-        function to do the actual acquisition ::
-
-           def take_reading(dets, md={}):
-                yield from ...
-
-        Callable[List[OphydObj], Optional[Dict[str, Any]]] -> Generator[Msg]
-
-        This plan must generate exactly 1 Run
-
-        Defaults to `bluesky.plans.count`
-
-    transform_pair : TransformPair
-
-       Expected to have two attributes 'forward' and 'inverse'
-
-       The forward transforms from "data coordinates" (Ti fraction,
-       temperature, annealing time) to "beam line" (x/y motor
-       position) coordinates ::
-
-          def forward(Ti, temperature, time):
-               return x, y
-
-       The inverse transforms from "beam line" (x/y motor position)
-       coordinates to "data coordinates" (Ti fraction, temperature,
-       annealing time) ::
-
-          def inverse(x, y):
-               return Ti_frac, temperature, annealing_time
-
-    snap_function : Callable, optional
-        "snaps" the requested measurement to the nearest available point ::
-
-           def snap(Ti, temperature, time):
-               returns snapped_Ti, snapped_temperature, snapped_time
-
-    reccomender_timeout : float, optional
-
-        How long to wait for the reccomender to respond before giving
-        it up for dead.
-
-    """
-
-    # unpack the real motors
-    x_motor, y_motor = real_motors
-    # make the soft pseudo axis
-    ctrl = Control(name="ctrl")
-    pseudo_axes = tuple(getattr(ctrl, k) for k in ctrl.component_names)
-    # convert the first_point variable to from we will be getting from
-    # queue
-    first_point = {m.name: v for m, v in zip(pseudo_axes, first_point)}
-
-    _md = {"batch_id": str(uuid.uuid4())}
-
-    _md.update(md or {})
-
-    @bpp.subs_decorator(to_recommender)
-    def gp_inner_plan():
-        # drain the queue in case there is anything left over from a previous
-        # run
-        while True:
-            try:
-                from_recommender.get(block=False)
-            except Empty:
-                break
-        uids = []
-        next_point = first_point
-        for j in itertools.count():
-            # extract the target position as a tuple
-            target = tuple(next_point[k.name] for k in pseudo_axes)
-            # if we have a snapping function use it
-            if snap_function is not None:
-                target = snap_function(*target)
-            # compute the real target
-            real_target = transform_pair.forward(*target)
-
-            # move to the new position
-            yield from bps.mov(*itertools.chain(*zip(real_motors, real_target)))
-
-            # read back where the motors really are
-            real_x = yield from read_the_first_key(x_motor)
-            real_y = yield from read_the_first_key(y_motor)
-
-            # compute the new (actual) pseudo positions
-            pseudo_target = transform_pair.inverse(real_x, real_y)
-            # and set our local synthetic object to them
-            yield from bps.mv(*itertools.chain(*zip(pseudo_axes, pseudo_target)))
-
-            # kick off the next actually measurement!
-            uid = yield from rocking_ct(
-                dets + list(real_motors) + [ctrl],
-                exposure,
-                y_motor,
-                real_y - 2,
-                real_y + 2,
-                md={
-                    **_md,
-                    "batch_count": j,
-                    "adaptive": {
-                        "requested": next_point,
-                        "snapped": {k.name: v for k, v in zip(pseudo_axes, target)},
-                    },
-                },
-            )
-            uids.append(uid)
-
-            # ask the reccomender what to do next
-            next_point = from_recommender.get(timeout=reccomender_timeout)
-            if next_point is None:
-                return
-
-        return uids
-
-    return (yield from gp_inner_plan())
-
-
-single_data = [
+_layout_template = [
     StripInfo(
         temperature=340,
         annealing_time=450,
@@ -564,88 +302,76 @@ single_data = [
         annealing_time=1800,
         ti_fractions=[19, 20, 23, 28, 32, 37, 42, 46, 51, 56, 60],
         start_position=14.0,
-        strip_center=-5,
+        strip_center=0,
     ),
     StripInfo(
         temperature=340,
         annealing_time=3600,
         ti_fractions=[16, 18, 22, 25, 29, 34, 36, 43, 49, 53, 58, 62, 67],
         start_position=9.5,
-        strip_center=-10,
+        strip_center=0,
     ),
     StripInfo(
         temperature=400,
         annealing_time=450,
         ti_fractions=[17, 20, 23, 27, 31, 36, 41, 46, 51, 56, 61, 65, 69],
         start_position=9.5,
-        strip_center=-15,
+        strip_center=0,
     ),
     StripInfo(
         temperature=400,
         annealing_time=1800,
         ti_fractions=[20, 23, 27, 32, 37, 42, 47, 51, 57, 63, 67, 71, 75, 78, 81],
         start_position=5,
-        strip_center=-20,
+        strip_center=0,
     ),
     StripInfo(
         temperature=400,
         annealing_time=3600,
         ti_fractions=[19, 22, 25, 30, 35, 39, 45, 50, 55, 60, 65, 69, 73, 77, 79],
         start_position=5,
-        strip_center=-25,
+        strip_center=0,
     ),
     StripInfo(
         temperature=460,
         annealing_time=450,
         ti_fractions=[17, 20, 24, 28, 32, 37, 43, 48, 52, 58, 63, 67, 71, 75, 78],
         start_position=5,
-        strip_center=-30,
+        strip_center=0,
     ),
     StripInfo(
         temperature=460,
         annealing_time=15 * 60,
         ti_fractions=[17, 19, 22, 26, 31, 35, 40, 46, 51, 56, 61, 65, 69, 73, 76],
         start_position=5,
-        strip_center=-35,
+        strip_center=0,
     ),
     StripInfo(
         temperature=460,
         annealing_time=30 * 60,
         ti_fractions=[15, 18, 21, 25, 28, 33, 38, 43, 48, 53, 58, 63, 67, 71, 75],
         start_position=5,
-        strip_center=-40,
+        strip_center=0,
     ),
+][::-1]
+
+spacing = 0
+
+thin_offset = 45.0
+single_data = [
+    StripInfo(
+        **{**asdict(strip), "strip_center": (j * (4.5 + spacing) + thin_offset + 2.25)}
+    )
+    for j, strip in enumerate(_layout_template)
 ]
 
-
-class SignalWithUnits(Signal):
-    def __init__(self, *args, units, **kwargs):
-        super().__init__(*args, **kwargs)
-        self._units = units
-
-    def describe(self):
-        ret = super().describe()
-        ret[self.name]["units"] = self._units
-        ret[self.name]["source"] = "derived"
-        return ret
-
-
-class Control(Device):
-    Ti = Cpt(SignalWithUnits, value=0, units="percent TI", kind="hinted")
-    temp = Cpt(SignalWithUnits, value=0, units="degrees C", kind="hinted")
-    anneal_time = Cpt(SignalWithUnits, value=0, units="s", kind="hinted")
-
-
-def read_the_first_key(obj):
-    reading = yield from bps.read(obj)
-    if reading is None:
-        return None
-    hints = obj.hints.get("fields", [])
-    if len(hints):
-        key, *_ = hints
-    else:
-        key, *_ = list(reading)
-    return reading[key]["value"]
+thick_offset = 0
+single_data_thick = [
+    StripInfo(
+        **{**asdict(strip), "strip_center": j * (4.5 + spacing) + thick_offset + 2.25}
+    )
+    for j, strip in enumerate(_layout_template)
+]
 
 
 def show_layout(strip_list, ax=None, *, cell_size=4.5):
