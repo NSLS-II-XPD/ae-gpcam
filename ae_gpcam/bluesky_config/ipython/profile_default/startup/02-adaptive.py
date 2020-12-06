@@ -74,10 +74,14 @@ def rocking_ct(dets, exposure, motor, start, stop, *, md=None):
         return num_frame, acq_time, computed_exposure
 
     # setting up area_detector
-    (ad,) = (d for d in dets if hasattr(d, "cam"))
-    (num_frame, acq_time, computed_exposure) = yield from configure_area_det(
-        ad, exposure
-    )
+    for ad in (d for d in dets if hasattr(d, "cam")):
+        (num_frame, acq_time, computed_exposure) = yield from configure_area_det(
+            ad, exposure
+        )
+    else:
+        acq_time = 0
+        computed_exposure = exposure
+        num_frame = 0
 
     sp = {
         "time_per_frame": acq_time,
@@ -93,7 +97,7 @@ def rocking_ct(dets, exposure, motor, start, stop, *, md=None):
     _md = {"sp": sp, **{f"sp_{k}": v for k, v in sp.items()}}
     _md.update(md)
 
-    @bpp.reset_positions_decorator(motor.velocity)
+    @bpp.reset_positions_decorator([motor.velocity])
     def per_shot(dets):
         nonlocal start, stop
         yield from bps.mv(motor.velocity, abs(stop - start) / exposure)

@@ -53,7 +53,6 @@ RE(
         (30, 460, 30 * 60),
         to_recommender=cb,
         from_recommender=queue,
-        take_reading=bp.count,
         real_motors=(x, y),
         transform_pair=pair,
         snap_function=snap_function,
