@@ -13,6 +13,7 @@ class ROIPicker(DocumentRouter):
         self._pub = publisher
         self.desc_bundle = None
         self._peak_location = peak_location
+        self._data = None
 
     def start(self, doc):
         self._source_uid = doc["original_start_uid"]
@@ -60,6 +61,7 @@ class ROIPicker(DocumentRouter):
                 },
             )
             self._pub("descriptor", self.desc_bundle.descriptor_doc)
+            self._data = []
         peak_location = self._peak_location
         out = []
         # TODO look this up!
@@ -79,6 +81,7 @@ class ROIPicker(DocumentRouter):
             ti = 0.5
             at = 5
             temp = 450
+        print(list(doc["data"]))
         for Q, I in zip(doc["data"]["q"], doc["data"]["mean"]):
 
             data = {
@@ -90,9 +93,7 @@ class ROIPicker(DocumentRouter):
                 "ctrl_annealing_time": at,
                 "ctrl_temp": temp,
             }
-            _ts = time.time()
-            ts = {k: _ts for k in data}
-            self._pub("event", self.desc_bundle.compose_event(data=data, timestamps=ts))
+            self._data.append(data)
 
             # import matplotlib.pyplot as plt
             #
@@ -103,6 +104,14 @@ class ROIPicker(DocumentRouter):
         print(out)
 
     def stop(self, doc):
+        _ts = time.time()
+        print(len(self._data))
+        if len(self._data):
+            keys = list(self._data[0])
+            data = {k: np.mean([d[k] for d in self._data]) for k in keys}
+            ts = {k: _ts for k in data}
+            self._pub("event", self.desc_bundle.compose_event(data=data, timestamps=ts))
+
         stop_doc = self.start_bundle.compose_stop()
         self._pub("stop", stop_doc)
 
