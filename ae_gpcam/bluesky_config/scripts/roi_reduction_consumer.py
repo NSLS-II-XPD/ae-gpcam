@@ -13,9 +13,11 @@ class ROIPicker(DocumentRouter):
         self._pub = publisher
         self.desc_bundle = None
         self._peak_location = peak_location
+        self._data = None
 
     def start(self, doc):
         self._source_uid = doc["original_start_uid"]
+        self._sample_name = doc.get("sample_name", None)
         self.start_bundle = compose_run(
             metadata=dict(raw_uid=self._source_uid, integrated_uid=doc["uid"])
         )
@@ -59,15 +61,27 @@ class ROIPicker(DocumentRouter):
                 },
             )
             self._pub("descriptor", self.desc_bundle.descriptor_doc)
+            self._data = []
         peak_location = self._peak_location
         out = []
         # TODO look this up!
         # It appears that xpdan does not propogate additional keys, so we will
         # need to reach back into databroker to pull out the raw data!
         orig_uid = self._source_uid
-        ti = 0.5
-        at = 5
-        temp = 450
+        # if the sample name is here, parse it.  This works for data from the
+        # last run, not sure if it will work in the future.
+        if self._sample_name is not None:
+            md = parse_name(self._sample_name)
+            ti = md["Ti"]
+            at = int(md["anneal_time"] * 60)
+            temp = md["temp"]
+        else:
+            # TODO look up in db to get actually values of xpdan does not forward
+            # extra fields
+            ti = 0.5
+            at = 5
+            temp = 450
+        print(list(doc["data"]))
         for Q, I in zip(doc["data"]["q"], doc["data"]["mean"]):
 
             data = {
@@ -79,13 +93,25 @@ class ROIPicker(DocumentRouter):
                 "ctrl_annealing_time": at,
                 "ctrl_temp": temp,
             }
-            _ts = time.time()
-            ts = {k: _ts for k in data}
-            self._pub("event", self.desc_bundle.compose_event(data=data, timestamps=ts))
+            self._data.append(data)
+
+            # import matplotlib.pyplot as plt
+            #
+            # plt.plot(Q, I, "-x")
+            # plt.axvspan(*peak_location, color="k", alpha=0.5)
+            # plt.show()
 
         print(out)
 
     def stop(self, doc):
+        _ts = time.time()
+        print(len(self._data))
+        if len(self._data):
+            keys = list(self._data[0])
+            data = {k: np.mean([d[k] for d in self._data]) for k in keys}
+            ts = {k: _ts for k in data}
+            self._pub("event", self.desc_bundle.compose_event(data=data, timestamps=ts))
+
         stop_doc = self.start_bundle.compose_stop()
         self._pub("stop", stop_doc)
 
@@ -131,6 +157,37 @@ def compute_peak_area(Q, I, q_start, q_stop):
     return np.sum((data_section - background) * dQ)
 
 
+def parse_name(inp):
+    # special case the empty sample position
+    if "empty" in inp:
+        return None
+    # the sample name can have 3 or 4 _
+    try:
+        comp, temp, time, batch, coord_number = inp.split("_")
+    except ValueError:
+        try:
+            comp, pristene, batch, coord_number = inp.split("_")
+            # if the sample is "pristene" default to room temperature and 0 cooking
+            if pristene == "Pristine":
+                temp = "25C"
+                time = "0min"
+            else:
+                return None
+        except ValueError:
+            return None
+    # TODO check the post fixes are correct
+    time = float(time.replace("p", ".")[:-3])
+    temp = float(temp[:-1])
+    comp = {comp[:2]: int(comp[2:4]), comp[4:6]: int(comp[6:])}
+    return {
+        **comp,
+        "temp": temp,
+        "anneal_time": time,
+        "batch": tuple(map(int, batch.split("-"))),
+        "position": tuple(map(int, coord_number.split("-"))),
+    }
+
+
 def xpdan_result_picker_factory(zmq_publisher, peak_location):
     def xpdan_result_picker(name, start_doc):
         print(f"analysis stage: {start_doc.get('analysis_stage')}")
@@ -147,8 +204,7 @@ d = RemoteDispatcher("localhost:5678", prefix=zmq_listening_prefix)
 
 zmq_publishing_prefix = b"rr"
 zmq_publisher = zmqPublisher("127.0.0.1:4567", prefix=zmq_publishing_prefix)
-# peak_locations = (2.63, 2.7)
-peak_location = (2.98, 3.23)
+peak_location = (2.63, 2.7)
 rr = RunRouter([xpdan_result_picker_factory(zmq_publisher, peak_location)])
 d.subscribe(rr)
 

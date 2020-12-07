@@ -6,7 +6,7 @@ from bluesky import RunEngine
 from bluesky.callbacks.core import LiveTable
 import bluesky.plans as bp
 from ophyd.sim import SynAxis
-
+from pprint import pp
 
 class BatchLiveTable(LiveTable):
     def start(self, doc):
@@ -45,7 +45,7 @@ cb, queue = recommender_factory(
 )
 
 pair = single_strip_set_transform_factory(single_data)
-snap_function = snap_factory(single_data, time_tol=5, temp_tol=10, Ti_tol=5)
+snap_function = snap_factory(single_data, time_tol=5, temp_tol=10, Ti_tol=None)
 
 RE(
     adaptive_plan(
@@ -53,9 +53,10 @@ RE(
         (30, 460, 30 * 60),
         to_recommender=cb,
         from_recommender=queue,
-        take_reading=bp.count,
         real_motors=(x, y),
         transform_pair=pair,
         snap_function=snap_function,
-    )
+        take_data=stepping_ct
+    ),
+    lambda name, doc: pp(doc) if name == 'start' else None
 )
