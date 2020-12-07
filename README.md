@@ -21,7 +21,7 @@ documents from the RunEngine to the ROI reduction server.
 
 ### Run the demonstration in a virtual machine
 
-An easy way to run all three processes is with a Vagrant virtual machine (VM).
+An easy way to run all four processes is with a Vagrant virtual machine (VM).
 A `Vagrantfile` is provided that installs podman and related prerequisites on CentOS 8.
 Install [Vagrant](vagrantup.com) and [VirtualBox](https://www.virtualbox.org/), then clone this repository.
 ```
