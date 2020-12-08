@@ -5,6 +5,9 @@ from dataclasses import dataclass, asdict, astuple, field
 from collections import namedtuple, defaultdict
 
 import numpy as np
+
+import scipy.stats
+
 import matplotlib.cm as mcm
 import matplotlib.colors as mcolors
 import matplotlib.patches as mpatches
@@ -24,8 +27,10 @@ def single_strip_transform_factory(
     temperature,
     annealing_time,
     ti_fractions,
-    start_position,
-    strip_center,
+    reference_x,
+    reference_y,
+    start_distance,
+    angle,
     *,
     cell_size=4.5,
 ):
@@ -49,18 +54,20 @@ def single_strip_transform_factory(
 
        Assume that the values are for the center of the cells.
 
-    start_position : float
+    reference_x, reference_y : float
+       The position of the reference point on the left edge of the
+       sample (looking upstream into the beam) and on the center line
+       of the sample strip.
 
-       Coordinate in beamline coordinates in the direction along the
-       strip in mm to the center of the first cell.
+    angle : float
+       The angle in radians of the tilt.  The rotation point is the
+       reference point.
 
-       Assumed to be 'x'
+    start_distance : float
 
-    strip_center : float
-       Coordinate of the center of the strip in the direction
-       transverse to the gradient in mm.
+       Distance along the strip from the reference point to the center
+       of the first cell in mm.
 
-       Assumed to be 'y'
 
     cell_size : float, optional
 
@@ -78,7 +85,7 @@ def single_strip_transform_factory(
     _temperature = int(temperature)
     _annealing_time = int(annealing_time)
 
-    cell_positions = start_position + np.arange(len(ti_fractions)) * cell_size
+    cell_positions = np.arange(len(ti_fractions)) * cell_size
 
     def to_bl_coords(Ti_frac, temperature, annealing_time):
         if _temperature != temperature or annealing_time != _annealing_time:
@@ -87,18 +94,30 @@ def single_strip_transform_factory(
         if Ti_frac > np.max(ti_fractions) or Ti_frac < np.min(ti_fractions):
             raise ValueError
 
-        x = np.interp(Ti_frac, ti_fractions, cell_positions)
-
-        return x, strip_center
+        d = np.interp(Ti_frac, ti_fractions, cell_positions) + start_distance
+        print(reference_x, np.cos(angle) * d, reference_y, np.sin(angle) * d)
+        return reference_x + np.cos(angle) * d, reference_y + np.sin(angle) * d
 
     def to_data_coords(x, y):
-        if x < np.min(cell_positions) or x > np.max(cell_positions):
+        x_rel = x - reference_x
+        y_rel = y - reference_y
+
+        r = np.hypot(x_rel, y_rel)
+
+        d_angle = np.arctan2(y_rel, x_rel)
+
+        from_center_angle = d_angle - angle
+
+        d = np.cos(from_center_angle) * r - start_distance
+        h = np.sin(from_center_angle) * r
+
+        if not (np.min(cell_positions) < d < np.max(cell_positions)):
             raise ValueError
 
-        if not ((strip_center - cell_size / 2) < y < (strip_center + cell_size / 2)):
+        if not (-cell_size / 2) < h < (cell_size / 2):
             raise ValueError
 
-        ti_frac = np.interp(x, cell_positions, ti_fractions)
+        ti_frac = np.interp(d, cell_positions, ti_fractions)
 
         return ti_frac, _temperature, _annealing_time
 
@@ -113,8 +132,10 @@ class StripInfo:
     annealing_time: int
     # exclude the ti_fraction from the hash
     ti_fractions: list[int] = field(hash=False)
-    start_position: float
-    strip_center: float
+    reference_x: float
+    reference_y: float
+    start_distance: float
+    angle: float
 
     # helpers to get the min/max of the ti fraction range.
     @property
@@ -211,11 +232,14 @@ def single_strip_set_transform_factory(strips, *, cell_size=4.5):
         # the y value fully determines what strip we are in
         for strip, pair in by_strip.items():
             if (
-                strip.strip_center - cell_size / 2
+                strip.reference_y - cell_size / 2
                 < y
-                < strip.strip_center + cell_size / 2
+                < strip.reference_y + cell_size / 2
             ):
                 return pair.inverse(x, y)
+            else:
+                print(f"rejected {strip}")
+
         else:
             raise ValueError
 
@@ -296,92 +320,202 @@ def snap_factory(strip_list, *, temp_tol=None, time_tol=None, Ti_tol=None):
     return snap
 
 
+# this is to do the data-entry on the temperature, annealing time,
+# start distance, and ti_fraction gradient.
 _layout_template = [
     StripInfo(
         temperature=340,
         annealing_time=450,
         ti_fractions=[19, 22, 27, 30, 35, 40, 44, 49, 53],
-        start_position=18.5,
-        strip_center=0,
+        start_distance=18.5,
+        reference_y=0,
+        reference_x=5,
+        angle=0,
     ),
     StripInfo(
         temperature=340,
         annealing_time=1800,
         ti_fractions=[19, 20, 23, 28, 32, 37, 42, 46, 51, 56, 60],
-        start_position=14.0,
-        strip_center=0,
+        start_distance=14.0,
+        reference_y=0,
+        reference_x=5,
+        angle=0,
     ),
     StripInfo(
         temperature=340,
         annealing_time=3600,
         ti_fractions=[16, 18, 22, 25, 29, 34, 36, 43, 49, 53, 58, 62, 67],
-        start_position=9.5,
-        strip_center=0,
+        start_distance=9.5,
+        reference_y=0,
+        reference_x=5,
+        angle=0,
     ),
     StripInfo(
         temperature=400,
         annealing_time=450,
         ti_fractions=[17, 20, 23, 27, 31, 36, 41, 46, 51, 56, 61, 65, 69],
-        start_position=9.5,
-        strip_center=0,
+        start_distance=9.5,
+        reference_y=0,
+        reference_x=5,
+        angle=0,
     ),
     StripInfo(
         temperature=400,
         annealing_time=1800,
         ti_fractions=[20, 23, 27, 32, 37, 42, 47, 51, 57, 63, 67, 71, 75, 78, 81],
-        start_position=5,
-        strip_center=0,
+        start_distance=5,
+        reference_y=0,
+        reference_x=5,
+        angle=0,
     ),
     StripInfo(
         temperature=400,
         annealing_time=3600,
         ti_fractions=[19, 22, 25, 30, 35, 39, 45, 50, 55, 60, 65, 69, 73, 77, 79],
-        start_position=5,
-        strip_center=0,
+        start_distance=5,
+        reference_y=0,
+        reference_x=5,
+        angle=0,
     ),
     StripInfo(
         temperature=460,
         annealing_time=450,
         ti_fractions=[17, 20, 24, 28, 32, 37, 43, 48, 52, 58, 63, 67, 71, 75, 78],
-        start_position=5,
-        strip_center=0,
+        start_distance=5,
+        reference_y=0,
+        reference_x=5,
+        angle=0,
     ),
     StripInfo(
         temperature=460,
         annealing_time=15 * 60,
         ti_fractions=[17, 19, 22, 26, 31, 35, 40, 46, 51, 56, 61, 65, 69, 73, 76],
-        start_position=5,
-        strip_center=0,
+        start_distance=5,
+        reference_y=0,
+        reference_x=5,
+        angle=0,
     ),
     StripInfo(
         temperature=460,
         annealing_time=30 * 60,
         ti_fractions=[15, 18, 21, 25, 28, 33, 38, 43, 48, 53, 58, 63, 67, 71, 75],
-        start_position=5,
-        strip_center=0,
+        start_distance=5,
+        reference_y=0,
+        reference_x=5,
+        angle=0,
     ),
-][::-1]
-
-spacing = 0
-
-thin_offset = 45.0
-single_data = [
     StripInfo(
-        **{**asdict(strip), "strip_center": (j * (4.5 + spacing) + thin_offset + 2.25)}
-    )
-    for j, strip in enumerate(_layout_template)
+        temperature=340,
+        annealing_time=1800,
+        ti_fractions=[19, 20, 23, 28, 32, 37, 42, 46, 51, 56, 60],
+        start_distance=14.0,
+        reference_y=0,
+        reference_x=5,
+        angle=0,
+    ),
+    StripInfo(
+        temperature=340,
+        annealing_time=3600,
+        ti_fractions=[16, 18, 22, 25, 29, 34, 36, 43, 49, 53, 58, 62, 67],
+        start_distance=9.5,
+        reference_y=0,
+        reference_x=5,
+        angle=0,
+    ),
+    StripInfo(
+        temperature=400,
+        annealing_time=450,
+        ti_fractions=[17, 20, 23, 27, 31, 36, 41, 46, 51, 56, 61, 65, 69],
+        start_distance=9.5,
+        reference_y=0,
+        reference_x=5,
+        angle=0,
+    ),
+    StripInfo(
+        temperature=400,
+        annealing_time=1800,
+        ti_fractions=[20, 23, 27, 32, 37, 42, 47, 51, 57, 63, 67, 71, 75, 78, 81],
+        start_distance=5,
+        reference_y=0,
+        reference_x=5,
+        angle=0,
+    ),
+    StripInfo(
+        temperature=400,
+        annealing_time=3600,
+        ti_fractions=[19, 22, 25, 30, 35, 39, 45, 50, 55, 60, 65, 69, 73, 77, 79],
+        start_distance=5,
+        reference_y=0,
+        reference_x=5,
+        angle=0,
+    ),
+    StripInfo(
+        temperature=460,
+        annealing_time=450,
+        ti_fractions=[17, 20, 24, 28, 32, 37, 43, 48, 52, 58, 63, 67, 71, 75, 78],
+        start_distance=5,
+        reference_y=0,
+        reference_x=5,
+        angle=0,
+    ),
+    StripInfo(
+        temperature=460,
+        annealing_time=15 * 60,
+        ti_fractions=[17, 19, 22, 26, 31, 35, 40, 46, 51, 56, 61, 65, 69, 73, 76],
+        start_distance=5,
+        reference_y=0,
+        reference_x=5,
+        angle=0,
+    ),
+    StripInfo(
+        temperature=460,
+        annealing_time=30 * 60,
+        ti_fractions=[15, 18, 21, 25, 28, 33, 38, 43, 48, 53, 58, 63, 67, 71, 75],
+        start_distance=5,
+        reference_y=0,
+        reference_x=5,
+        angle=0,
+    ),
 ]
 
-thick_offset = 0
-single_data_thick = [
-    StripInfo(
-        **{**asdict(strip), "strip_center": j * (4.5 + spacing) + thick_offset + 2.25}
+
+# data collected on the first day for the as-mounted centers of the strips at 3 positions.
+mpos = np.array(
+    [
+        sorted([float(__.strip()) for __ in _.split(";")])
+        for _ in """83.97; 79.98; 74.96; 70.1; 64.65; 60.04; 55.62; 51.09; 41.55; 36.62; 31.59; 26.99; 21.88; 17.62; 12.43; 7.92; 3.4
+3.28; 8.01; 12.69; 17.62; 22.4; 27.33; 31.85; 36.7; 41.64; 51.68; 56.55; 61.06; 65.67; 70.43; 75.2; 80.58; 84.49
+3.67; 7.9; 13.19; 17.8; 22.5; 27.5; 32.03; 36.41;41.5; 52.46; 57.05; 61.75; 66.52; 70.52; 75.31;80.82; 84.47""".split(
+            "\n"
+        )
+    ]
+).T
+sampled_x = [35, 60, 85]
+
+# fit the above to a line
+fits = [scipy.stats.linregress(sampled_x, m) for m in mpos]
+# get the 0 we need to make the start_distance's above make sense
+ref_x = 35 - 5 - 2 * 4.5
+
+# generate the data by zipping the template + the fit angle and offsets
+single_data = [
+    StripInfo(**{**asdict(strip), **measured})
+    for strip, measured in zip(
+        _layout_template,
+        [
+            {
+                "angle": np.arctan2(f.slope, 1),
+                "reference_x": ref_x,
+                "reference_y": ref_x * f.slope + f.intercept,
+            }
+            for f in fits
+        ],
     )
-    for j, strip in enumerate(_layout_template)
 ]
 
 
 def show_layout(strip_list, ax=None, *, cell_size=4.5):
+    """Make a nice plot of the strip layout."""
     if ax is None:
         import matplotlib.pyplot as plt
 
@@ -397,10 +531,11 @@ def show_layout(strip_list, ax=None, *, cell_size=4.5):
 
         for j, ti_frac in enumerate(strip.ti_fractions):
             color = cmap(norm(ti_frac))
+            d = strip.start_distance + j * cell_size
             rect = mpatches.Rectangle(
                 (
-                    strip.start_position + j * cell_size,
-                    strip.strip_center - cell_size / 2,
+                    strip.reference_x + d * np.cos(strip.angle),
+                    strip.reference_y - cell_size / 2 + d * np.sin(strip.angle),
                 ),
                 cell_size,
                 cell_size,
@@ -409,8 +544,8 @@ def show_layout(strip_list, ax=None, *, cell_size=4.5):
             ax.add_patch(rect)
             cells[strip].append(
                 ax.text(
-                    strip.start_position + (j + 0.5) * cell_size,
-                    strip.strip_center,
+                    strip.reference_x + (d + cell_size / 2) * np.cos(strip.angle),
+                    strip.reference_y + (d + cell_size / 2) * np.sin(strip.angle),
                     f"{ti_frac}",
                     ha="center",
                     va="center",
@@ -419,9 +554,13 @@ def show_layout(strip_list, ax=None, *, cell_size=4.5):
             )
             cells[strip].append(rect)
 
+        full_d = strip.start_distance + (j + 1) * cell_size
         labels[strip] = ax.annotate(
             f"{strip.temperature}°C\n{strip.annealing_time}s",
-            xy=(strip.start_position + (j + 1) * cell_size, strip.strip_center),
+            xy=(
+                strip.reference_x + full_d * np.cos(strip.angle),
+                strip.reference_y + full_d * np.sin(strip.angle),
+            ),
             xytext=(10, 0),
             textcoords="offset points",
             va="center",
@@ -434,3 +573,19 @@ def show_layout(strip_list, ax=None, *, cell_size=4.5):
     ax.figure.tight_layout()
     ax.spines["right"].set_visible(False)
     ax.spines["top"].set_visible(False)
+    # positive goes down on the beamline
+    ax.invert_yaxis()
+    ax.set_aspect("equal")
+
+
+if True:
+    import matplotlib.pyplot as plt
+
+    fig, ax = plt.subplots()
+    show_layout(single_data, ax=ax)
+
+    ax.plot(sampled_x, mpos.T, marker="o", color=".5")
+
+    ax.add_patch(
+        mpatches.Rectangle((28.5, 2.5), 64, 80, color="k", alpha=0.25, zorder=2)
+    )
