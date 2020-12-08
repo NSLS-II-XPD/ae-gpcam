@@ -78,7 +78,10 @@ def recommender_factory(
     def callback(name, doc):
         # TODO handle multi-stream runs with more than 1 event!
         if name == "start":
-            if doc["batch_count"] > max_count:
+            if "batch_count" not in doc:
+                print(f"batch_count missing from {name} {doc['uid']}")
+
+            elif doc["batch_count"] > max_count:
                 queue.put(None)
                 return
 
@@ -148,7 +151,7 @@ def recommender_factory(
 zmq_listening_prefix = b"rr"
 
 zmq_dispatcher = ZmqRemoteDispatcher(
-    address=("127.0.0.1", 5678), prefix=zmq_listening_prefix
+    address=("xf28id2-ca1", 5578), prefix=zmq_listening_prefix
 )
 
 
@@ -163,20 +166,23 @@ class RedisQueue:
         self.client.lpush("adaptive", json.dumps(value))
 
 
-redis_queue = RedisQueue(redis.StrictRedis(host="localhost", port=6379, db=0))
+#redis_queue = RedisQueue(redis.StrictRedis(host="localhost", port=6379, db=0))
+redis_queue = RedisQueue(redis.StrictRedis(host="xf28id2-srv1", port=6379, db=0))
 
-gp_optimizer = gp_optimizer.GPOptimizer(
+gpopt = gp_optimizer.GPOptimizer(
     input_space_dimension=3,
     output_space_dimension=1,
     output_number=1,
-    index_set_bounds=[],
-    hyperparameter_bounds=[],
+    index_set_bounds=[[16, 81], [7.5, 60], [340, 460]],
+    hyperparameter_bounds=[[0.001, 1e9], [0.001, 100], [0.001, 100], [0.001, 100]],
 )
 
 gpcam_recommender_run_router, _ = recommender_factory(
-    gp_optimizer_obj=gp_optimizer,
-    independent_keys=None,
-    dependent_keys=None,
+    gp_optimizer_obj=gpopt,
+    independent_keys=[
+        "ctrl_Ti", "ctrl_annealing_time", "ctrl_temp"
+    ],
+    dependent_keys=["I_00"],
     variance_keys=None,
     max_count=1,
     queue=redis_queue,

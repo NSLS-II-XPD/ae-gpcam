@@ -7,6 +7,8 @@ from event_model import compose_run
 from bluesky.callbacks.zmq import RemoteDispatcher
 from bluesky.callbacks.zmq import Publisher as zmqPublisher
 
+from databroker import Broker
+
 
 class ROIPicker(DocumentRouter):
     def __init__(self, publisher, peak_location):
@@ -14,6 +16,7 @@ class ROIPicker(DocumentRouter):
         self.desc_bundle = None
         self._peak_location = peak_location
         self._data = None
+        self._databroker = Broker.named("xpd")
 
     def start(self, doc):
         self._source_uid = doc["original_start_uid"]
@@ -24,6 +27,7 @@ class ROIPicker(DocumentRouter):
         self._pub("start", self.start_bundle.start_doc)
 
     def event_page(self, doc):
+        print(f"event_page: {doc}")
         if self.desc_bundle is None:
             self.desc_bundle = self.start_bundle.compose_descriptor(
                 name="primary",
@@ -78,6 +82,8 @@ class ROIPicker(DocumentRouter):
         else:
             # TODO look up in db to get actually values of xpdan does not forward
             # extra fields
+            start_doc = self._databroker[self._source_uid].start
+            print(start_doc)
             ti = 0.5
             at = 5
             temp = 450
@@ -192,6 +198,7 @@ def xpdan_result_picker_factory(zmq_publisher, peak_location):
     def xpdan_result_picker(name, start_doc):
         print(f"analysis stage: {start_doc.get('analysis_stage')}")
         if start_doc.get("analysis_stage", "") == "integration":
+            print(f"got integration start document")
             return [ROIPicker(zmq_publisher, peak_location)], []
         return [], []
 
@@ -200,10 +207,10 @@ def xpdan_result_picker_factory(zmq_publisher, peak_location):
 
 # this process listens for 0MQ messages with prefix "an" (from xpdan)
 zmq_listening_prefix = b"an"
-d = RemoteDispatcher("localhost:5678", prefix=zmq_listening_prefix)
+d = RemoteDispatcher("xf28id2-ca1:5578", prefix=zmq_listening_prefix)
 
 zmq_publishing_prefix = b"rr"
-zmq_publisher = zmqPublisher("127.0.0.1:4567", prefix=zmq_publishing_prefix)
+zmq_publisher = zmqPublisher("xf28id2-ca1:5577", prefix=zmq_publishing_prefix)
 peak_location = (2.63, 2.7)
 rr = RunRouter([xpdan_result_picker_factory(zmq_publisher, peak_location)])
 d.subscribe(rr)
