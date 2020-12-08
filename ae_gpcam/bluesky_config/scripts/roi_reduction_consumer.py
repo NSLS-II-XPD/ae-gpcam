@@ -1,4 +1,6 @@
+import argparse
 import numpy as np
+import pprint
 import time
 
 from event_model import RunRouter
@@ -80,13 +82,13 @@ class ROIPicker(DocumentRouter):
             at = int(md["anneal_time"] * 60)
             temp = md["temp"]
         else:
-            # TODO look up in db to get actually values of xpdan does not forward
+            # TODO look up in db to get actual values xpdan does not forward
             # extra fields
             start_doc = self._databroker[self._source_uid].start
             print(start_doc)
-            ti = 0.5
-            at = 5
-            temp = 450
+            ti = start_doc["ctrl_Ti"]  # 0.5
+            at = start_doc["ctrl_annealing_time"]  # 5
+            temp = start_doc["ctrl_temp"]  # 450
         print(list(doc["data"]))
         for Q, I in zip(doc["data"]["q"], doc["data"]["mean"]):
 
@@ -110,6 +112,7 @@ class ROIPicker(DocumentRouter):
         print(out)
 
     def stop(self, doc):
+        print(f"stop document arrived")
         _ts = time.time()
         print(len(self._data))
         if len(self._data):
@@ -205,16 +208,33 @@ def xpdan_result_picker_factory(zmq_publisher, peak_location):
     return xpdan_result_picker
 
 
-# this process listens for 0MQ messages with prefix "an" (from xpdan)
-zmq_listening_prefix = b"an"
-d = RemoteDispatcher("xf28id2-ca1:5578", prefix=zmq_listening_prefix)
+arg_parser = argparse.ArgumentParser()
 
-zmq_publishing_prefix = b"rr"
-zmq_publisher = zmqPublisher("xf28id2-ca1:5577", prefix=zmq_publishing_prefix)
+# publish 0MQ messages at XPD from xf28id2-ca1:5577
+# subscribe to 0MQ messages at XPD from xf28id2-ca1:5578
+arg_parser.add_argument("--zmq-host", type=str, default="xf28id2-ca1")
+arg_parser.add_argument("--zmq-publish-port", type=int, default=5577)
+arg_parser.add_argument("--zmq-publish-prefix", type=str, default="rr")
+arg_parser.add_argument("--zmq-subscribe-port", type=int, default=5578)
+arg_parser.add_argument("--zmq-subscribe-prefix", type=str, default="an")
+
+args = arg_parser.parse_args()
+
+pprint.pprint(vars(args))
+
+# this process listens for 0MQ messages with prefix "an" (from xpdan)
+d = RemoteDispatcher(
+    f"{args.zmq_host}:{args.zmq_subscribe_port}",
+    prefix=args.zmq_subscribe_prefix.encode(),
+)
+
+zmq_publisher = zmqPublisher(
+    f"{args.zmq_host}:{args.zmq_publish_port}", prefix=args.zmq_publish_prefix.encode()
+)
 peak_location = (2.63, 2.7)
 rr = RunRouter([xpdan_result_picker_factory(zmq_publisher, peak_location)])
 d.subscribe(rr)
 
-print(f"ROI REDUCTION CONSUMER IS LISTENING ON {zmq_listening_prefix}")
-print(f"AND PUBLISHING ON {zmq_publishing_prefix}")
+print(f"ROI REDUCTION CONSUMER IS LISTENING ON {args.zmq_subscribe_prefix.encode()}")
+print(f"AND PUBLISHING ON {args.zmq_publish_prefix.encode()}")
 d.start()
