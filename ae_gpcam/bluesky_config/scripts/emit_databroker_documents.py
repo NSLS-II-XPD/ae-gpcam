@@ -25,7 +25,6 @@ db = Broker.named("xpd")
 zmq_publisher = Publisher(
     f"{args.zmq_host}:{args.zmq_publish_port}", prefix=args.zmq_publish_prefix.encode()
 )
-run_uid = "88e450ff-b1a7-4a17-a353-ab40653b7675"
 
 extra = count()
 for name, doc in db[args.run_id].documents():
