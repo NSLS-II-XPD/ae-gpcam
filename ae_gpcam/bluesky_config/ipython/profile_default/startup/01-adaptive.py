@@ -131,7 +131,7 @@ class StripInfo:
     temperature: int
     annealing_time: int
     # exclude the ti_fraction from the hash
-    ti_fractions: list[int] = field(hash=False)
+    ti_fractions: list = field(hash=False)
     reference_x: float
     reference_y: float
     start_distance: float

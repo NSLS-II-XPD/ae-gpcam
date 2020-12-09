@@ -298,7 +298,6 @@ def adaptive_plan(
 
             # ask the reccomender what to do next
             next_point = from_recommender.get(timeout=reccomender_timeout)
-            print(f"{next_point=}")
             if next_point is None:
                 return
 

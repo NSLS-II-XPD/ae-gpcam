@@ -208,6 +208,19 @@ def xpdan_result_picker_factory(zmq_publisher, peak_location):
     return xpdan_result_picker
 
 
+def womp_womp(docp):
+    """need this to work around xpdan putting diffpy objects in some events"""
+
+    import pickle
+
+    try:
+        doc = pickle.loads(docp)
+    except Exception as e:
+        print(e)
+        return {"time": 0, "data": {}, "timestamps": {}, "uid": ""}
+    return doc
+
+
 arg_parser = argparse.ArgumentParser()
 
 # publish 0MQ messages at XPD from xf28id2-ca1:5577
@@ -226,6 +239,7 @@ pprint.pprint(vars(args))
 d = RemoteDispatcher(
     f"{args.zmq_host}:{args.zmq_subscribe_port}",
     prefix=args.zmq_subscribe_prefix.encode(),
+    deserializer=womp_womp,
 )
 
 zmq_publisher = zmqPublisher(
