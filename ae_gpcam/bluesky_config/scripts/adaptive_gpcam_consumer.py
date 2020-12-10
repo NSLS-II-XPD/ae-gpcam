@@ -98,7 +98,7 @@ def recommender_factory(
                 independent_keys, dependent_keys, variance_keys, payload=doc["data"]
             )
             # measurement = np.array([[np.sin(independent[0,0])]])
-            variances[:, :] = 0.01
+            # variances[:, :] = 0.01
             value_positions = np.zeros((1, 1, 1))
             print("new measurement results:")
             print("x: ", independent)
