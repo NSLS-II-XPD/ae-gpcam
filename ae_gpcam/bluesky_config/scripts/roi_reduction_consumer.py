@@ -160,6 +160,12 @@ class ROIPicker(DocumentRouter):
                         "units": "arb",
                         "shape": [],
                     },
+                    "ctrl_thickness": {
+                        "dtype": "number",
+                        "source": "computed",
+                        "units": "arb",
+                        "shape": [],
+                    },
                 },
             )
             self._pub("descriptor", self.desc_bundle.descriptor_doc)
@@ -172,19 +178,20 @@ class ROIPicker(DocumentRouter):
         orig_uid = self._source_uid
         # if the sample name is here, parse it.  This works for data from the
         # last run, not sure if it will work in the future.
-        if self._sample_name is not None:
-            md = parse_name(self._sample_name)
-            print(f"what's in {self._sample_name}: {pprint.pformat(md)}")
-            print(f"?event_page doc: {pprint.pformat(doc)}")
-            ti = 1.0 # doc["data"]["ctrl_Ti"]
-            at = 2 # int(doc["data"]["anneal_time"] * 60)
-            temp = 3.0 # doc["data"]["temp"]
-        else:
-            # TODO look up in db to get actual values xpdan does not forward
-            # extra fields
-            ti = 4.0 # doc["data"]["ctrl_Ti"]  # 0.5
-            at = 5 # doc["data"]["ctrl_annealing_time"]  # 5
-            temp = 6.0 # doc["data"]["ctrl_temp"]  # 450
+        # if self._sample_name is not None:
+        #     md = parse_name(self._sample_name)
+        #     print(f"what's in {self._sample_name}: {pprint.pformat(md)}")
+        #     print(f"?event_page doc: {pprint.pformat(doc)}")
+        #     ti = 1.0 # doc["data"]["ctrl_Ti"]
+        #     at = 2 # int(doc["data"]["anneal_time"] * 60)
+        #     temp = 3.0 # doc["data"]["temp"]
+        # else:
+        #     # TODO look up in db to get actual values xpdan does not forward
+        #     # extra fields
+        #     ti = doc["data"]["ctrl_Ti"]  # 0.5
+        #     at = doc["data"]["ctrl_annealing_time"]  # 5
+        #     temp = doc["data"]["ctrl_temp"]  # 450
+        #     thickness = doc["data"]["ctrl_thickness"]
 
         for Q, I in zip(doc["data"]["q"], doc["data"]["mean"]):
 
@@ -193,9 +200,10 @@ class ROIPicker(DocumentRouter):
                 # pick the center of the peak as the Q
                 "Q_00": np.mean(peak_location),
                 # mirror out the control values
-                "ctrl_Ti": ti,
-                "ctrl_annealing_time": at,
-                "ctrl_temp": temp,
+                "ctrl_Ti": doc["data"]["ctrl_Ti"],
+                "ctrl_annealing_time": doc["data"]["ctrl_annealing_time"],
+                "ctrl_temp": doc["data"]["ctrl_temp"],
+                "ctrl_thickness": doc["data"]["ctrl_thickness"]
             }
             self._data.append(data)
 
