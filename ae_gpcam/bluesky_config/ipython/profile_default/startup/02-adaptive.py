@@ -14,6 +14,56 @@ from bluesky.utils import short_uid
 from queue import Empty
 
 
+def future_count(detectors, num=1, delay=None, *, per_shot=None, md=None):
+    """
+    Take one or more readings from detectors.
+    Parameters
+    ----------
+    detectors : list
+        list of 'readable' objects
+    num : integer, optional
+        number of readings to take; default is 1
+        If None, capture data until canceled
+    delay : iterable or scalar, optional
+        Time delay in seconds between successive readings; default is 0.
+    per_shot : callable, optional
+        hook for customizing action of inner loop (messages per step)
+        Expected signature ::
+           def f(detectors: Iterable[OphydObj]) -> Generator[Msg]:
+               ...
+    md : dict, optional
+        metadata
+    Notes
+    -----
+    If ``delay`` is an iterable, it must have at least ``num - 1`` entries or
+    the plan will raise a ``ValueError`` during iteration.
+    """
+    if num is None:
+        num_intervals = None
+    else:
+        num_intervals = num - 1
+    _md = {'detectors': [det.name for det in detectors],
+           'num_points': num,
+           'num_intervals': num_intervals,
+           'plan_args': {'detectors': list(map(repr, detectors)), 'num': num},
+           'plan_name': 'count',
+           'hints': {}
+           }
+    _md.update(md or {})
+    _md['hints'].setdefault('dimensions', [(('time',), 'primary')])
+
+    if per_shot is None:
+        per_shot = bps.one_shot
+
+    @bpp.stage_decorator(detectors)
+    @bpp.run_decorator(md=_md)
+    def inner_count():
+        return (yield from bps.repeat(partial(per_shot, detectors),
+                                      num=num, delay=delay))
+
+    return (yield from inner_count())
+
+
 def _xpd_pre_plan(dets, exposure):
     """Handle detector exposure time + xpdan required metadata"""
 
@@ -114,7 +164,7 @@ def rocking_ct(dets, exposure, motor, start, stop, *, num=1, md=None):
         yield from bps.wait(group=gp)
         start, stop = stop, start
 
-    return (yield from bp.count(dets, md=_md, per_shot=per_shot, num=num))
+    return (yield from future_count(dets, md=_md, per_shot=per_shot, num=num))
 
 
 def stepping_ct(dets, exposure, motor, start, stop, *, md=None, num=3):
@@ -298,8 +348,14 @@ def adaptive_plan(
 
             # ask the reccomender what to do next
             next_point = from_recommender.get(timeout=reccomender_timeout)
+            #print(f"{next_point=}")
             if next_point is None:
                 return
+            elif j > 0:
+                print(f"stopping after batch_count reached {j}")
+                return
+            else:
+                print(f"keep going!")
 
         return uids
 
@@ -325,7 +381,7 @@ class Control(Device):
 
     Ti = Cpt(SignalWithUnits, value=0, units="percent TI", kind="hinted")
     temp = Cpt(SignalWithUnits, value=0, units="degrees C", kind="hinted")
-    anneal_time = Cpt(SignalWithUnits, value=0, units="s", kind="hinted")
+    annealing_time = Cpt(SignalWithUnits, value=0, units="s", kind="hinted")
 
 
 def _read_the_first_key(obj):

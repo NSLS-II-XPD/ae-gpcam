@@ -89,6 +89,10 @@ def recommender_factory(
                 return
 
         elif name == "event_page":
+            print(f"event_page: {pprint.pformat(doc)}")
+            print(f"independent_keys: {pprint.pformat(independent_keys)}")
+            print(f"dependent_keys: {pprint.pformat(dependent_keys)}")
+            print(f"variance_keys: {pprint.pformat(variance_keys)}")
             independent, measurement, variances = extract_event_page(
                 independent_keys, dependent_keys, variance_keys, payload=doc["data"]
             )
@@ -200,7 +204,7 @@ gpcam_recommender_run_router, _ = recommender_factory(
     gp_optimizer_obj=gpopt,
     independent_keys=["ctrl_Ti", "ctrl_annealing_time", "ctrl_temp"],
     dependent_keys=["I_00"],
-    variance_keys=None,
+    variance_keys=["I_00"],
     max_count=1,
     queue=redis_queue,
 )
