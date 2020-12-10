@@ -2,6 +2,7 @@ import argparse
 import json
 import pprint
 from queue import Queue
+import time
 
 import numpy as np
 import redis
@@ -112,6 +113,7 @@ def recommender_factory(
             print("telling data ...")
             if len(gp_optimizer_obj.points) in [5, 20, 100, 200, 400]:
                 lom = "global"
+            t0 = time.time()
             gp_optimizer_obj.tell(
                 independent,
                 measurement,
@@ -123,6 +125,8 @@ def recommender_factory(
                 measurement_costs_update=False,
                 append=True,
             )
+            t1 = time.time()
+            print(f"tell() took {t1-t0:.2f}s")
             # print("current data set: ", gp_optimizer_obj.points)
             # print("---------------------------------------")
             # pull the next point out of the adaptive API
@@ -137,12 +141,15 @@ def recommender_factory(
                 ##max_iter = 20
                 ##tol = 0.0001
                 print("asking for point...")
+                t0 = time.time()
                 res = gp_optimizer_obj.ask(position=None, n=1)
+                t1 = time.time()
                 next_point = res["x"]
                 func_eval = res["f(x)"]
                 next_point = next_point.squeeze()
                 func_eval = func_eval.squeeze()
-                print("next requested point ", next_point)
+                print(f"next point {next_point}")
+                print(f"ask() took {t1-t0:.2f}s")
                 print("======================================")
 
             except NoRecommendation:
@@ -204,7 +211,7 @@ gpcam_recommender_run_router, _ = recommender_factory(
     gp_optimizer_obj=gpopt,
     independent_keys=["ctrl_Ti", "ctrl_annealing_time", "ctrl_temp"],
     dependent_keys=["I_00"],
-    variance_keys=["I_00"],
+    variance_keys=["I_00_variance"],
     max_count=1,
     queue=redis_queue,
 )
