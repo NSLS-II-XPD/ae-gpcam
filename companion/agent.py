@@ -9,11 +9,12 @@ from event_model import RunRouter
 from event_model import DocumentRouter
 from event_model import unpack_event_page
 from bluesky.run_engine import Dispatcher, DocumentNames
-from bluesky.callbacks.zmq import Publisher as zmqPublisher
 from nmf import decomposition, example_plot
 import matplotlib.pyplot as plt
-
+import json
 from bluesky.utils import install_qt_kicker
+
+import databroker
 
 
 class RemoteDispatcher(Dispatcher):
@@ -120,11 +121,15 @@ class RemoteDispatcher(Dispatcher):
 
 
 class Accumulator(DocumentRouter):
-    def __init__(self, max_N=1_000):
+    def __init__(self, max_N=1_000, event_filter=None):
         self._event_cache = deque(maxlen=max_N)
         # This can not be subscribed to the RE (due to Qt + thread issues)
         self.fig = plt.figure()
         self.fig.canvas.manager.show()
+        self.update_plot = True
+        if event_filter is None:
+            event_filter = lambda doc: True
+        self.event_filter = event_filter
 
     def event_page(self, doc):
         data = doc["data"]
@@ -135,14 +140,30 @@ class Accumulator(DocumentRouter):
         for doc in unpack_event_page(doc):
             self._event_cache.append(doc)
 
+        if self.update_plot:
+            self.redraw_plot()
+
+        print(f"Currently has {len(self._event_cache)} datasets")
+
+    def redraw_plot(self):
+
         if len(self._event_cache) == 0:
             return
 
-        Is = np.array([d["data"]["mean"] for d in self._event_cache])
-        Qs = np.array([d["data"]["q"] for d in self._event_cache])
-        self.fig
-
-        sub_Q, sub_I, alphas = decomposition(Qs, Is, q_range=(2.0, 4.0), n_components=3, bkg_removal=8, normalize=True)
+        Is = np.array(
+            [d["data"]["mean"] for d in self._event_cache if self.event_filter(d)]
+        )
+        Qs = np.array(
+            [d["data"]["q"] for d in self._event_cache if self.event_filter(d)]
+        )
+        sub_Q, sub_I, alphas = decomposition(
+            Qs,
+            Is,
+            q_range=(2.0, 4.0),
+            n_components=3,
+            bkg_removal=8,
+            normalize=True,
+        )
 
         # nuke everything
         self.fig.clf()
@@ -151,7 +172,6 @@ class Accumulator(DocumentRouter):
         example_plot(sub_Q, sub_I, alphas, axes=axes[:3], sax=axes[3], summary_fig=True)
         self.fig.canvas.draw_idle()
         self.fig.canvas.flush_events()
-        print(f"Currently has {len(self._event_cache)} datasets")
 
 
 arg_parser = argparse.ArgumentParser()
@@ -161,8 +181,10 @@ arg_parser = argparse.ArgumentParser()
 arg_parser.add_argument("--zmq-host", type=str, default="xf28id2-ca1")
 arg_parser.add_argument("--zmq-subscribe-port", type=int, default=5578)
 arg_parser.add_argument("--zmq-subscribe-prefix", type=str, default="an")
-arg_parser.add_argument("--zmq-publish-port", type=int, default=5577)
-arg_parser.add_argument("--zmq-publish-prefix", type=str, default="rr")
+
+# info about how to back-fill
+arg_parser.add_argument("--catalog-name", type=str, default="xpd")
+arg_parser.add_argument("--catalog-query", type=str, default="{}")
 
 args = arg_parser.parse_args()
 
@@ -174,7 +196,20 @@ d = RemoteDispatcher(
     prefix=args.zmq_subscribe_prefix.encode(),
 )
 
+query = json.loads(args.catalog_query)
+
 accumulator = Accumulator()
+
+if query:
+    cat = databroker.catalog[args.catalog_name]
+    search_results = cat.search(query)
+    accumulator.update_plot = False
+    for uid in search_results:
+        h = cat[uid]
+        for name, doc in h.canonical(fill="no"):
+            accumulator(name, doc)
+    accumulator.update_plot = True
+    accumulator.redraw_plot()
 
 
 def integration_accumulator(name, start_doc):
