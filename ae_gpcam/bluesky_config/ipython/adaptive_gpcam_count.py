@@ -36,7 +36,9 @@ redis_queue = RedisQueue(
 )
 
 def to_recommender(name, doc):
-    print(f"to_recommender got\n{name}\n{pprint.pprint(doc)}")
+    print(f"to_recommender got\n{name}")
+    #if name == "start":
+    #    pprint.pprint(doc)
 
 pair = single_strip_set_transform_factory(single_data)
 #snap_function = snap_factory(single_data, time_tol=5, temp_tol=10, Ti_tol=None)
@@ -49,10 +51,12 @@ xrun(
         (24, 340, 30 * 60),
         to_recommender=to_recommender,
         from_recommender=redis_queue,
-        real_motors=(ss_stg2_x, ss_stg2_y),
+        reccomender_timeout=60,
+        real_motors=(sample_x, ss_stg2_y),
         transform_pair=pair,
         snap_function=snap_function,
-        take_data=stepping_ct
+        take_data=stepping_ct,
+        exposure=5
     ),
     #print
     #lambda name, doc: pprint.pprint(doc) if name == 'start' else None
