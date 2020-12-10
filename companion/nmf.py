@@ -118,4 +118,4 @@ def example_plot(sub_Q, sub_I, alphas, axes=None, cmap='tab10', alt_ordinate=Non
         else:
             ax.set_visible = False
 
-    return axes.figure, axes
+    return axes[0].figure, axes
