@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import matplotlib as mpl
 
 
-def decomposition(Q, I, n_components=3, q_range=None, bkg_removal=None):
+def decomposition(Q, I, n_components=3, q_range=None, max_iter=10000, bkg_removal=None, normalize=False):
     """
     Decompose and label a set of I(Q) data with optional focus bounds
 
@@ -31,15 +31,9 @@ def decomposition(Q, I, n_components=3, q_range=None, bkg_removal=None):
 
     """
 
-    nmf = NMF(n_components=n_components, max_iter=10000)
+    nmf = NMF(n_components=n_components, max_iter=max_iter)
 
-    if bkg_removal:
-        # Integer should call peakutils.baseline. TODO: Choose sensible degree of polynomial.
-        # Array should be broadcast subtraction
-        raise NotImplementedError
 
-    if np.min(I) < 0:
-        I = I - np.min(I, axis=1, keepdims=True)
 
     if q_range is None:
         idx_min = 0
@@ -50,6 +44,22 @@ def decomposition(Q, I, n_components=3, q_range=None, bkg_removal=None):
 
     sub_I = I[:, idx_min:idx_max]
     sub_Q = Q[:, idx_min:idx_max]
+
+    if bkg_removal:
+        import peakutils
+        bases = []
+        for i in range(sub_I.shape[0]):
+            bases.append(peakutils.baseline(sub_I[i, :], deg=bkg_removal))
+        bases = np.stack(bases)
+        sub_I = sub_I - bases
+    if normalize:
+        sub_I = (sub_I - np.min(I, axis=1, keepdims=True)) / (np.max(sub_I, axis=1, keepdims=True) - np.min(sub_I, axis=1, keepdims=True))
+
+
+    # Numerical stability of non-negativity
+    if np.min(sub_I) < 0:
+        sub_I = sub_I - np.min(sub_I, axis=1, keepdims=True)
+
     alphas = nmf.fit_transform(sub_I)
 
     return sub_Q, sub_I, alphas
@@ -64,7 +74,7 @@ def waterfall(ax, xs, ys, alphas, color='k', sampling=1, offset=0.2, **kwargs):
     return ax
 
 
-def example_plot(sub_Q, sub_I, alphas, axes=None, cmap='tab10', alt_ordinate=None):
+def example_plot(sub_Q, sub_I, alphas, axes=None, sax=None, cmap='tab10', alt_ordinate=None, offset=1., summary_fig=False):
     """
     Example plotting of NMF results. Not necessarily for Bluesky deployment
 
@@ -76,10 +86,13 @@ def example_plot(sub_Q, sub_I, alphas, axes=None, cmap='tab10', alt_ordinate=Non
         I to plot in I(Q)
     alphas: array
         transparencies of multiple repeated plots of I(Q)
-    axes: optional existing axes
+    axes: optional existing axes for waterfalls
+    sax: optional axes for summary figure
     cmap: mpl colormap
     alt_ordinate: array
         Array len sub_I.shape[0], corresponding to an alternative labeled dimension for which to order the stacked plots
+    summary_fig: bool
+        Whether to include separate figure of alphas over the ordinate
 
     Returns
     -------
@@ -114,8 +127,18 @@ def example_plot(sub_Q, sub_I, alphas, axes=None, cmap='tab10', alt_ordinate=Non
             i_a = alpha_ord[i]
             color = cmap(norm(i))
             alpha = (alphas[:, i_a] - np.min(alphas[:, i_a])) / (np.max(alphas[:, i_a]) - np.min(alphas[:, i_a]))
-            ax = waterfall(ax, xs, ys, alpha, color=color)
+            ax = waterfall(ax, xs, ys, alpha, color=color, offset=offset)
         else:
             ax.set_visible = False
 
-    return axes.figure, axes
+    if summary_fig:
+        if sax is None:
+            sfig, sax = plt.subplots(figsize=(6,6))
+
+        sx = np.arange(0, alphas.shape[0])
+        for i in range(alphas.shape[1]):
+            sax.plot(sx, alphas[:,alpha_ord[i]], color=cmap(norm(i)), label=f"Component {i+1}")
+
+        return axes, sax
+
+    return axes[0].figure, axes
