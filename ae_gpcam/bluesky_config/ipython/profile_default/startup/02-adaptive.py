@@ -12,6 +12,7 @@ import bluesky.plan_stubs as bps
 import bluesky.plans as bp
 from bluesky.utils import short_uid
 from queue import Empty
+import pprint
 
 
 def future_count(detectors, num=1, delay=None, *, per_shot=None, md=None):
@@ -42,15 +43,16 @@ def future_count(detectors, num=1, delay=None, *, per_shot=None, md=None):
         num_intervals = None
     else:
         num_intervals = num - 1
-    _md = {'detectors': [det.name for det in detectors],
-           'num_points': num,
-           'num_intervals': num_intervals,
-           'plan_args': {'detectors': list(map(repr, detectors)), 'num': num},
-           'plan_name': 'count',
-           'hints': {}
-           }
+    _md = {
+        "detectors": [det.name for det in detectors],
+        "num_points": num,
+        "num_intervals": num_intervals,
+        "plan_args": {"detectors": list(map(repr, detectors)), "num": num},
+        "plan_name": "count",
+        "hints": {},
+    }
     _md.update(md or {})
-    _md['hints'].setdefault('dimensions', [(('time',), 'primary')])
+    _md["hints"].setdefault("dimensions", [(("time",), "primary")])
 
     if per_shot is None:
         per_shot = bps.one_shot
@@ -58,8 +60,9 @@ def future_count(detectors, num=1, delay=None, *, per_shot=None, md=None):
     @bpp.stage_decorator(detectors)
     @bpp.run_decorator(md=_md)
     def inner_count():
-        return (yield from bps.repeat(partial(per_shot, detectors),
-                                      num=num, delay=delay))
+        return (
+            yield from bps.repeat(partial(per_shot, detectors), num=num, delay=delay)
+        )
 
     return (yield from inner_count())
 
@@ -395,6 +398,7 @@ class Control(Device):
     Ti = Cpt(SignalWithUnits, value=0, units="percent TI", kind="hinted")
     temp = Cpt(SignalWithUnits, value=0, units="degrees C", kind="hinted")
     annealing_time = Cpt(SignalWithUnits, value=0, units="s", kind="hinted")
+    thickness = Cpt(SignalWithUnits, value=0, units="enum", kind="hinted")
 
 
 def _read_the_first_key(obj):

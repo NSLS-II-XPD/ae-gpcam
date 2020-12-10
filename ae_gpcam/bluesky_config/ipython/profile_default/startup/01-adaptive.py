@@ -31,6 +31,7 @@ def single_strip_transform_factory(
     reference_y,
     start_distance,
     angle,
+    thickness,
     *,
     cell_size=4.5,
 ):
@@ -84,11 +85,16 @@ def single_strip_transform_factory(
     """
     _temperature = int(temperature)
     _annealing_time = int(annealing_time)
+    _thickness = int(thickness)
 
     cell_positions = np.arange(len(ti_fractions)) * cell_size
 
-    def to_bl_coords(Ti_frac, temperature, annealing_time):
-        if _temperature != temperature or annealing_time != _annealing_time:
+    def to_bl_coords(Ti_frac, temperature, annealing_time, thickness):
+        if (
+            _temperature != temperature
+            or annealing_time != _annealing_time
+            or _thickness != thickness
+        ):
             raise ValueError
 
         if Ti_frac > np.max(ti_fractions) or Ti_frac < np.min(ti_fractions):
@@ -119,7 +125,7 @@ def single_strip_transform_factory(
 
         ti_frac = np.interp(d, cell_positions, ti_fractions)
 
-        return ti_frac, _temperature, _annealing_time
+        return ti_frac, _temperature, _annealing_time, _thickness
 
     return TransformPair(to_bl_coords, to_data_coords)
 
@@ -136,6 +142,8 @@ class StripInfo:
     reference_y: float
     start_distance: float
     angle: float
+    # treat this as a categorical
+    thickness: int
 
     # helpers to get the min/max of the ti fraction range.
     @property
@@ -214,16 +222,18 @@ def single_strip_set_transform_factory(strips, *, cell_size=4.5):
 
     for strip in strips:
         pair = single_strip_transform_factory(*astuple(strip))
-        by_annealing[(strip.temperature, strip.annealing_time)].append((strip, pair))
+        by_annealing[(strip.temperature, strip.annealing_time, strip.thickness)].append(
+            (strip, pair)
+        )
         by_strip[strip] = pair
 
-    def forward(Ti_frac, temperature, annealing_time):
-        candidates = by_annealing[(temperature, annealing_time)]
+    def forward(Ti_frac, temperature, annealing_time, thickness):
+        candidates = by_annealing[(temperature, annealing_time, thickness)]
 
         # we need to find a strip that has the right Ti_frac available
         for strip, pair in candidates:
             if strip.ti_min <= Ti_frac <= strip.ti_max:
-                return pair.forward(Ti_frac, temperature, annealing_time)
+                return pair.forward(Ti_frac, temperature, annealing_time, thickness)
         else:
             # get here if we don't find a valid strip!
             raise ValueError
@@ -250,6 +260,8 @@ def snap_factory(strip_list, *, temp_tol=None, time_tol=None, Ti_tol=None):
     """
     Generate a snapping function with given strips and tolerances.
 
+    Thickness is always snapped to {0, 1} and tolerated it if fails.
+
     Parameters
     ----------
     strips : List[StripInfo]
@@ -262,6 +274,7 @@ def snap_factory(strip_list, *, temp_tol=None, time_tol=None, Ti_tol=None):
 
     Ti_tol : int, optional
        If not None, only snap in with in tolerance range
+
 
     Returns
     -------
@@ -276,8 +289,12 @@ def snap_factory(strip_list, *, temp_tol=None, time_tol=None, Ti_tol=None):
     # make local copy to be safe!
     strips = tuple(strip_list)
 
-    def snap(Ti, temperature, annealing_time):
+    def snap(Ti, temperature, annealing_time, thickness):
         l_strips = strips
+
+        thickness = int(np.clip(np.round(thickness), 0, 1))
+
+        l_strips = filter(lambda x: x.thickness == thickness, l_strips)
 
         # only consider strips close enough in temperature
         if temp_tol is not None:
@@ -304,12 +321,15 @@ def snap_factory(strip_list, *, temp_tol=None, time_tol=None, Ti_tol=None):
                 strip.temperature - temperature, strip.annealing_time - annealing_time
             )
 
-        # TODO make error message better here if nothing within tolerance
-        best = min(l_strips, key=l2_norm)
+        try:
+            best = min(l_strips, key=l2_norm)
+        except ValueError:
+            # try with the other thickness
+            return snap(Ti, temperature, annealing_time, {0: 1, 1: 0}[thickness])
         # clip Ti fraction to be within the selected strip
         best_Ti = np.clip(Ti, best.ti_min + 1.0, best.ti_max - 1.0)
 
-        return best_Ti, best.temperature, best.annealing_time
+        return best_Ti, best.temperature, best.annealing_time, best.thickness
 
     snap.tols = {
         k: v
@@ -331,6 +351,7 @@ _layout_template = [
         reference_y=0,
         reference_x=5,
         angle=0,
+        thickness=-1,
     ),
     StripInfo(
         temperature=340,
@@ -340,6 +361,7 @@ _layout_template = [
         reference_y=0,
         reference_x=5,
         angle=0,
+        thickness=-1,
     ),
     StripInfo(
         temperature=340,
@@ -349,6 +371,7 @@ _layout_template = [
         reference_y=0,
         reference_x=5,
         angle=0,
+        thickness=-1,
     ),
     StripInfo(
         temperature=400,
@@ -358,6 +381,7 @@ _layout_template = [
         reference_y=0,
         reference_x=5,
         angle=0,
+        thickness=-1,
     ),
     StripInfo(
         temperature=400,
@@ -367,6 +391,7 @@ _layout_template = [
         reference_y=0,
         reference_x=5,
         angle=0,
+        thickness=-1,
     ),
     StripInfo(
         temperature=400,
@@ -376,6 +401,7 @@ _layout_template = [
         reference_y=0,
         reference_x=5,
         angle=0,
+        thickness=-1,
     ),
     StripInfo(
         temperature=460,
@@ -385,6 +411,7 @@ _layout_template = [
         reference_y=0,
         reference_x=5,
         angle=0,
+        thickness=-1,
     ),
     StripInfo(
         temperature=460,
@@ -394,6 +421,7 @@ _layout_template = [
         reference_y=0,
         reference_x=5,
         angle=0,
+        thickness=-1,
     ),
     StripInfo(
         temperature=460,
@@ -403,6 +431,7 @@ _layout_template = [
         reference_y=0,
         reference_x=5,
         angle=0,
+        thickness=-1,
     ),
     StripInfo(
         temperature=340,
@@ -412,6 +441,7 @@ _layout_template = [
         reference_y=0,
         reference_x=5,
         angle=0,
+        thickness=-1,
     ),
     StripInfo(
         temperature=340,
@@ -421,6 +451,7 @@ _layout_template = [
         reference_y=0,
         reference_x=5,
         angle=0,
+        thickness=-1,
     ),
     StripInfo(
         temperature=400,
@@ -430,6 +461,7 @@ _layout_template = [
         reference_y=0,
         reference_x=5,
         angle=0,
+        thickness=-1,
     ),
     StripInfo(
         temperature=400,
@@ -439,6 +471,7 @@ _layout_template = [
         reference_y=0,
         reference_x=5,
         angle=0,
+        thickness=-1,
     ),
     StripInfo(
         temperature=400,
@@ -448,6 +481,7 @@ _layout_template = [
         reference_y=0,
         reference_x=5,
         angle=0,
+        thickness=-1,
     ),
     StripInfo(
         temperature=460,
@@ -457,6 +491,7 @@ _layout_template = [
         reference_y=0,
         reference_x=5,
         angle=0,
+        thickness=-1,
     ),
     StripInfo(
         temperature=460,
@@ -466,6 +501,7 @@ _layout_template = [
         reference_y=0,
         reference_x=5,
         angle=0,
+        thickness=-1,
     ),
     StripInfo(
         temperature=460,
@@ -475,6 +511,7 @@ _layout_template = [
         reference_y=0,
         reference_x=5,
         angle=0,
+        thickness=-1,
     ),
 ]
 
@@ -499,8 +536,8 @@ ref_x = 35 - 5 - 2 * 4.5
 
 # generate the data by zipping the template + the fit angle and offsets
 single_data = [
-    StripInfo(**{**asdict(strip), **measured})
-    for strip, measured in zip(
+    StripInfo(**{**asdict(strip), **measured, "thickness": thickness})
+    for strip, measured, thickness in zip(
         _layout_template,
         [
             {
@@ -510,6 +547,7 @@ single_data = [
             }
             for f in fits
         ],
+        [0] * 9 + [1] * 8,
     )
 ]
 
@@ -523,7 +561,7 @@ def show_layout(strip_list, ax=None, *, cell_size=4.5):
 
     cmap = mcm.get_cmap("magma")
     norm = mcolors.Normalize(0, 100)
-
+    state_map = {0: "thick", 1: "thin"}
     cells = {}
     labels = {}
     for strip in strip_list:
@@ -556,7 +594,7 @@ def show_layout(strip_list, ax=None, *, cell_size=4.5):
 
         full_d = strip.start_distance + (j + 1) * cell_size
         labels[strip] = ax.annotate(
-            f"{strip.temperature}°C\n{strip.annealing_time}s",
+            f"{strip.temperature}°C\n{strip.annealing_time}s\n{state_map[strip.thickness]}",
             xy=(
                 strip.reference_x + full_d * np.cos(strip.angle),
                 strip.reference_y + full_d * np.sin(strip.angle),
