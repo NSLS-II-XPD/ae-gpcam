@@ -203,13 +203,13 @@ gpopt = gp_optimizer.GPOptimizer(
     input_space_dimension=3,
     output_space_dimension=1,
     output_number=1,
-    index_set_bounds=[[16, 81], [7.5, 60], [340, 460]],
-    hyperparameter_bounds=[[0.001, 1e9], [0.001, 100], [0.001, 100], [0.001, 100]],
+    index_set_bounds=[[16, 81], [7.5, 60], [340, 460], [0, 1]],
+    hyperparameter_bounds=[[0.1, 100], [0.1, 100], [0.1, 100], [0.1, 100]],
 )
 
 gpcam_recommender_run_router, _ = recommender_factory(
     gp_optimizer_obj=gpopt,
-    independent_keys=["ctrl_Ti", "ctrl_annealing_time", "ctrl_temp"],
+    independent_keys=["ctrl_Ti", "ctrl_annealing_time", "ctrl_temp", "ctrl_thickness"],
     dependent_keys=["I_00"],
     variance_keys=["I_00_variance"],
     max_count=1,
