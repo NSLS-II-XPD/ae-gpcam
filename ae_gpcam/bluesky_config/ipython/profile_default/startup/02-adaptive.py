@@ -1,7 +1,7 @@
 """Plan for running pgcam AE with a gradient TiCu sample."""
-
 import uuid
 import itertools
+import time
 
 import numpy as np
 
@@ -309,21 +309,29 @@ def adaptive_plan(
         for j in itertools.count():
             # extract the target position as a tuple
             target = tuple(next_point[k.name] for k in pseudo_axes)
+            print(f"next point: {pprint.pformat(next_point)}")
             # if we have a snapping function use it
             if snap_function is not None:
                 target = snap_function(*target)
+            print(f"snapped target: {target}")
             # compute the real target
             real_target = transform_pair.forward(*target)
+            print(f"real target: {real_target}")
 
             # move to the new position
+            t0 = time.time()
             yield from bps.mov(*itertools.chain(*zip(real_motors, real_target)))
+            t1 = time.time()
+            print(f"move to target took {t1-t0:0.2f}s")
 
             # read back where the motors really are
             real_x = yield from _read_the_first_key(x_motor)
             real_y = yield from _read_the_first_key(y_motor)
+            print(f"real x and y: {real_x}, {real_y}")
 
             # compute the new (actual) pseudo positions
             pseudo_target = transform_pair.inverse(real_x, real_y)
+            print(f"pseudo target: {pseudo_target}")
             # and set our local synthetic object to them
             yield from bps.mv(*itertools.chain(*zip(pseudo_axes, pseudo_target)))
 
@@ -347,11 +355,16 @@ def adaptive_plan(
             uids.append(uid)
 
             # ask the reccomender what to do next
+            t0 = time.time()
             next_point = from_recommender.get(timeout=reccomender_timeout)
-            #print(f"{next_point=}")
+            t1 = time.time()
+            print(f"waited {t1-t0:.2f}s for recommendation")
+
+            print(f"batch count: {j}")
             if next_point is None:
+                print("no recommendation - stopping")
                 return
-            elif j > 0:
+            elif j > 10:
                 print(f"stopping after batch_count reached {j}")
                 return
             else:
