@@ -120,7 +120,7 @@ class ROIPicker(DocumentRouter):
         self._source_uid = doc["original_start_uid"]
         self._sample_name = doc.get("sample_name", None)
         self.start_bundle = compose_run(
-            metadata=dict(raw_uid=self._source_uid, integrated_uid=doc["uid"])
+            metadata=dict(raw_uid=self._source_uid, integrated_uid=doc["uid"], batch_count=doc.get("batch_count", None))
         )
         self._pub("start", self.start_bundle.start_doc)
 
@@ -214,6 +214,7 @@ class ROIPicker(DocumentRouter):
         if len(self._data):
             keys = list(self._data[0])
             data = {k: np.mean([d[k] for d in self._data]) for k in keys}
+            data["I_00_variance"] = np.var([d["I_00"] for d in self._data])
             ts = {k: _ts for k in data}
             self._pub("event", self.desc_bundle.compose_event(data=data, timestamps=ts))
 
