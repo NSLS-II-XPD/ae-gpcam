@@ -78,5 +78,6 @@ Vagrant.configure("2") do |config|
     time sudo bash image_builders/build_caproto_image.sh
     time sudo bash image_builders/build_databroker_server_image.sh
     time sudo bash image_builders/build_typhos_image.sh
+    time sudo bash image_builders/build_xpdan.sh
   SHELL
 end
