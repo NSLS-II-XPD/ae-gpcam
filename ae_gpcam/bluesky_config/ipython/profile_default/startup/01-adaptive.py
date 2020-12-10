@@ -307,7 +307,7 @@ def snap_factory(strip_list, *, temp_tol=None, time_tol=None, Ti_tol=None):
         # TODO make error message better here if nothing within tolerance
         best = min(l_strips, key=l2_norm)
         # clip Ti fraction to be within the selected strip
-        best_Ti = np.clip(Ti, best.ti_min, best.ti_max)
+        best_Ti = np.clip(Ti, best.ti_min + 1.0, best.ti_max - 1.0)
 
         return best_Ti, best.temperature, best.annealing_time
 
