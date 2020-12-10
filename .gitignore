@@ -1,4 +1,6 @@
+ae_exfil/
 gpcamv4and5/
+ae_gpcam/notebooks
 
 TiCu_export/*
 *.tar.gz
