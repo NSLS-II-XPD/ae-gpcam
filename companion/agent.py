@@ -121,12 +121,15 @@ class RemoteDispatcher(Dispatcher):
 
 
 class Accumulator(DocumentRouter):
-    def __init__(self, max_N=1_000):
+    def __init__(self, max_N=1_000, event_filter=None):
         self._event_cache = deque(maxlen=max_N)
         # This can not be subscribed to the RE (due to Qt + thread issues)
         self.fig = plt.figure()
         self.fig.canvas.manager.show()
         self.update_plot = True
+        if event_filter is None:
+            event_filter = lambda doc: True
+        self.event_filter = event_filter
 
     def event_page(self, doc):
         data = doc["data"]
@@ -147,8 +150,12 @@ class Accumulator(DocumentRouter):
         if len(self._event_cache) == 0:
             return
 
-        Is = np.array([d["data"]["mean"] for d in self._event_cache])
-        Qs = np.array([d["data"]["q"] for d in self._event_cache])
+        Is = np.array(
+            [d["data"]["mean"] for d in self._event_cache if self.event_filter(d)]
+        )
+        Qs = np.array(
+            [d["data"]["q"] for d in self._event_cache if self.event_filter(d)]
+        )
         sub_Q, sub_I, alphas = decomposition(
             Qs,
             Is,
