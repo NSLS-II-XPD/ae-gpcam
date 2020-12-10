@@ -346,7 +346,7 @@ _layout_template = [
     StripInfo(
         temperature=340,
         annealing_time=450,
-        ti_fractions=[19, 22, 27, 30, 35, 40, 44, 49, 53],
+        ti_fractions=[19, 22, 27, 30, 35, 40, 44, 49, 53][::-1],
         start_distance=18.5,
         reference_y=0,
         reference_x=5,
@@ -356,7 +356,7 @@ _layout_template = [
     StripInfo(
         temperature=340,
         annealing_time=1800,
-        ti_fractions=[19, 20, 23, 28, 32, 37, 42, 46, 51, 56, 60],
+        ti_fractions=[19, 20, 23, 28, 32, 37, 42, 46, 51, 56, 60][::-1],
         start_distance=14.0,
         reference_y=0,
         reference_x=5,
@@ -366,7 +366,7 @@ _layout_template = [
     StripInfo(
         temperature=340,
         annealing_time=3600,
-        ti_fractions=[16, 18, 22, 25, 29, 34, 36, 43, 49, 53, 58, 62, 67],
+        ti_fractions=[16, 18, 22, 25, 29, 34, 36, 43, 49, 53, 58, 62, 67][::-1],
         start_distance=9.5,
         reference_y=0,
         reference_x=5,
@@ -376,7 +376,7 @@ _layout_template = [
     StripInfo(
         temperature=400,
         annealing_time=450,
-        ti_fractions=[17, 20, 23, 27, 31, 36, 41, 46, 51, 56, 61, 65, 69],
+        ti_fractions=[17, 20, 23, 27, 31, 36, 41, 46, 51, 56, 61, 65, 69][::-1],
         start_distance=9.5,
         reference_y=0,
         reference_x=5,
@@ -386,7 +386,7 @@ _layout_template = [
     StripInfo(
         temperature=400,
         annealing_time=1800,
-        ti_fractions=[20, 23, 27, 32, 37, 42, 47, 51, 57, 63, 67, 71, 75, 78, 81],
+        ti_fractions=[20, 23, 27, 32, 37, 42, 47, 51, 57, 63, 67, 71, 75, 78, 81][::-1],
         start_distance=5,
         reference_y=0,
         reference_x=5,
@@ -396,7 +396,7 @@ _layout_template = [
     StripInfo(
         temperature=400,
         annealing_time=3600,
-        ti_fractions=[19, 22, 25, 30, 35, 39, 45, 50, 55, 60, 65, 69, 73, 77, 79],
+        ti_fractions=[19, 22, 25, 30, 35, 39, 45, 50, 55, 60, 65, 69, 73, 77, 79][::-1],
         start_distance=5,
         reference_y=0,
         reference_x=5,
@@ -406,7 +406,7 @@ _layout_template = [
     StripInfo(
         temperature=460,
         annealing_time=450,
-        ti_fractions=[17, 20, 24, 28, 32, 37, 43, 48, 52, 58, 63, 67, 71, 75, 78],
+        ti_fractions=[17, 20, 24, 28, 32, 37, 43, 48, 52, 58, 63, 67, 71, 75, 78][::-1],
         start_distance=5,
         reference_y=0,
         reference_x=5,
@@ -416,7 +416,7 @@ _layout_template = [
     StripInfo(
         temperature=460,
         annealing_time=15 * 60,
-        ti_fractions=[17, 19, 22, 26, 31, 35, 40, 46, 51, 56, 61, 65, 69, 73, 76],
+        ti_fractions=[17, 19, 22, 26, 31, 35, 40, 46, 51, 56, 61, 65, 69, 73, 76][::-1],
         start_distance=5,
         reference_y=0,
         reference_x=5,
@@ -426,7 +426,7 @@ _layout_template = [
     StripInfo(
         temperature=460,
         annealing_time=30 * 60,
-        ti_fractions=[15, 18, 21, 25, 28, 33, 38, 43, 48, 53, 58, 63, 67, 71, 75],
+        ti_fractions=[15, 18, 21, 25, 28, 33, 38, 43, 48, 53, 58, 63, 67, 71, 75][::-1],
         start_distance=5,
         reference_y=0,
         reference_x=5,
@@ -436,7 +436,7 @@ _layout_template = [
     StripInfo(
         temperature=340,
         annealing_time=1800,
-        ti_fractions=[19, 20, 23, 28, 32, 37, 42, 46, 51, 56, 60],
+        ti_fractions=[19, 20, 23, 28, 32, 37, 42, 46, 51, 56, 60][::-1],
         start_distance=14.0,
         reference_y=0,
         reference_x=5,
@@ -446,7 +446,7 @@ _layout_template = [
     StripInfo(
         temperature=340,
         annealing_time=3600,
-        ti_fractions=[16, 18, 22, 25, 29, 34, 36, 43, 49, 53, 58, 62, 67],
+        ti_fractions=[16, 18, 22, 25, 29, 34, 36, 43, 49, 53, 58, 62, 67][::-1],
         start_distance=9.5,
         reference_y=0,
         reference_x=5,
@@ -456,7 +456,7 @@ _layout_template = [
     StripInfo(
         temperature=400,
         annealing_time=450,
-        ti_fractions=[17, 20, 23, 27, 31, 36, 41, 46, 51, 56, 61, 65, 69],
+        ti_fractions=[17, 20, 23, 27, 31, 36, 41, 46, 51, 56, 61, 65, 69][::-1],
         start_distance=9.5,
         reference_y=0,
         reference_x=5,
@@ -466,7 +466,7 @@ _layout_template = [
     StripInfo(
         temperature=400,
         annealing_time=1800,
-        ti_fractions=[20, 23, 27, 32, 37, 42, 47, 51, 57, 63, 67, 71, 75, 78, 81],
+        ti_fractions=[20, 23, 27, 32, 37, 42, 47, 51, 57, 63, 67, 71, 75, 78, 81][::-1],
         start_distance=5,
         reference_y=0,
         reference_x=5,
@@ -476,7 +476,7 @@ _layout_template = [
     StripInfo(
         temperature=400,
         annealing_time=3600,
-        ti_fractions=[19, 22, 25, 30, 35, 39, 45, 50, 55, 60, 65, 69, 73, 77, 79],
+        ti_fractions=[19, 22, 25, 30, 35, 39, 45, 50, 55, 60, 65, 69, 73, 77, 79][::-1],
         start_distance=5,
         reference_y=0,
         reference_x=5,
@@ -486,7 +486,7 @@ _layout_template = [
     StripInfo(
         temperature=460,
         annealing_time=450,
-        ti_fractions=[17, 20, 24, 28, 32, 37, 43, 48, 52, 58, 63, 67, 71, 75, 78],
+        ti_fractions=[17, 20, 24, 28, 32, 37, 43, 48, 52, 58, 63, 67, 71, 75, 78][::-1],
         start_distance=5,
         reference_y=0,
         reference_x=5,
@@ -496,7 +496,7 @@ _layout_template = [
     StripInfo(
         temperature=460,
         annealing_time=15 * 60,
-        ti_fractions=[17, 19, 22, 26, 31, 35, 40, 46, 51, 56, 61, 65, 69, 73, 76],
+        ti_fractions=[17, 19, 22, 26, 31, 35, 40, 46, 51, 56, 61, 65, 69, 73, 76][::-1],
         start_distance=5,
         reference_y=0,
         reference_x=5,
@@ -506,7 +506,7 @@ _layout_template = [
     StripInfo(
         temperature=460,
         annealing_time=30 * 60,
-        ti_fractions=[15, 18, 21, 25, 28, 33, 38, 43, 48, 53, 58, 63, 67, 71, 75],
+        ti_fractions=[15, 18, 21, 25, 28, 33, 38, 43, 48, 53, 58, 63, 67, 71, 75][::-1],
         start_distance=5,
         reference_y=0,
         reference_x=5,
@@ -592,14 +592,13 @@ def show_layout(strip_list, ax=None, *, cell_size=4.5):
             )
             cells[strip].append(rect)
 
-        full_d = strip.start_distance + (j + 1) * cell_size
         labels[strip] = ax.annotate(
             f"{strip.temperature}°C\n{strip.annealing_time}s\n{state_map[strip.thickness]}",
             xy=(
-                strip.reference_x + full_d * np.cos(strip.angle),
-                strip.reference_y + full_d * np.sin(strip.angle),
+                strip.reference_x + strip.start_distance - cell_size / 2,
+                strip.reference_y,
             ),
-            xytext=(10, 0),
+            xytext=(0, 0),
             textcoords="offset points",
             va="center",
             ha="left",
@@ -613,6 +612,7 @@ def show_layout(strip_list, ax=None, *, cell_size=4.5):
     ax.spines["top"].set_visible(False)
     # positive goes down on the beamline
     ax.invert_yaxis()
+    ax.invert_xaxis()
     ax.set_aspect("equal")
 
 
@@ -627,3 +627,4 @@ if True:
     ax.add_patch(
         mpatches.Rectangle((28.5, 2.5), 64, 80, color="k", alpha=0.25, zorder=2)
     )
+    plt.show()
