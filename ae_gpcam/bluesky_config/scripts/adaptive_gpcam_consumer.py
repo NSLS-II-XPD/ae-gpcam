@@ -1,4 +1,6 @@
+import argparse
 import json
+import pprint
 from queue import Queue
 
 import numpy as np
@@ -77,15 +79,20 @@ def recommender_factory(
 
     def callback(name, doc):
         # TODO handle multi-stream runs with more than 1 event!
+        print(f"callback received {name}")
         if name == "start":
             if "batch_count" not in doc:
-                print(f"batch_count missing from {name} {doc['uid']}")
+                print(f"  batch_count missing from {name} {doc['uid']}")
 
             elif doc["batch_count"] > max_count:
                 queue.put(None)
                 return
 
-        if name == "event_page":
+        elif name == "event_page":
+            print(f"event_page: {pprint.pformat(doc)}")
+            print(f"independent_keys: {pprint.pformat(independent_keys)}")
+            print(f"dependent_keys: {pprint.pformat(dependent_keys)}")
+            print(f"variance_keys: {pprint.pformat(variance_keys)}")
             independent, measurement, variances = extract_event_page(
                 independent_keys, dependent_keys, variance_keys, payload=doc["data"]
             )
@@ -142,17 +149,11 @@ def recommender_factory(
                 queue.put(None)
             else:
                 queue.put({k: v for k, v in zip(independent_keys, next_point)})
+        else:
+            print(f"  document {name} is not handled")
 
     rr = RunRouter([lambda name, doc: ([callback], [])])
     return rr, queue
-
-
-# this process listens for 0MQ messages with prefix "rr" (roi-reduced)
-zmq_listening_prefix = b"rr"
-
-zmq_dispatcher = ZmqRemoteDispatcher(
-    address=("xf28id2-ca1", 5578), prefix=zmq_listening_prefix
-)
 
 
 class RedisQueue:
@@ -166,8 +167,30 @@ class RedisQueue:
         self.client.lpush("adaptive", json.dumps(value))
 
 
-#redis_queue = RedisQueue(redis.StrictRedis(host="localhost", port=6379, db=0))
-redis_queue = RedisQueue(redis.StrictRedis(host="xf28id2-srv1", port=6379, db=0))
+arg_parser = argparse.ArgumentParser()
+
+# talk to redis at XPD on xf28id2-srv1:6379
+arg_parser.add_argument("--redis-host", type=str, default="xf28id2-srv1")
+arg_parser.add_argument("--redis-port", type=int, default=6379)
+
+# subscribe to 0MQ messages at XPD from xf28id2-ca1:5578
+arg_parser.add_argument("--zmq-host", type=str, default="xf28id2-ca1")
+arg_parser.add_argument("--zmq-subscribe-port", type=int, default=5578)
+arg_parser.add_argument("--zmq-subscribe-prefix", type=str, default="rr")
+
+args = arg_parser.parse_args()
+
+pprint.pprint(vars(args))
+
+# this process listens for 0MQ messages with prefix "rr" (roi-reduced)
+zmq_dispatcher = ZmqRemoteDispatcher(
+    address=(args.zmq_host, args.zmq_subscribe_port),
+    prefix=args.zmq_subscribe_prefix.encode(),
+)
+
+redis_queue = RedisQueue(
+    redis.StrictRedis(host=args.redis_host, port=args.redis_port, db=0)
+)
 
 gpopt = gp_optimizer.GPOptimizer(
     input_space_dimension=3,
@@ -179,11 +202,9 @@ gpopt = gp_optimizer.GPOptimizer(
 
 gpcam_recommender_run_router, _ = recommender_factory(
     gp_optimizer_obj=gpopt,
-    independent_keys=[
-        "ctrl_Ti", "ctrl_annealing_time", "ctrl_temp"
-    ],
+    independent_keys=["ctrl_Ti", "ctrl_annealing_time", "ctrl_temp"],
     dependent_keys=["I_00"],
-    variance_keys=None,
+    variance_keys=["I_00"],
     max_count=1,
     queue=redis_queue,
 )
@@ -191,5 +212,5 @@ gpcam_recommender_run_router, _ = recommender_factory(
 zmq_dispatcher.subscribe(gpcam_recommender_run_router)
 
 
-print(f"ADAPTIVE GPCAM CONSUMER LISTENING ON {zmq_listening_prefix}")
+print(f"ADAPTIVE GPCAM CONSUMER LISTENING ON {args.zmq_subscribe_prefix.encode()}")
 zmq_dispatcher.start()
