@@ -1,0 +1,74 @@
+!!python/object/apply:collections.OrderedDict
+- - [detector, Perkin detector]
+  - [pixel1, 0.0002]
+  - [pixel2, 0.0002]
+  - - dist
+    - !!python/object/apply:numpy.core.multiarray.scalar
+      - &id001 !!python/object/apply:numpy.dtype
+        args: [f8, 0, 1]
+        state: !!python/tuple [3, <, null, null, null, -1, -1, 0]
+      - !!binary |
+        yCMlrxRt9j8=
+  - - poni1
+    - !!python/object/apply:numpy.core.multiarray.scalar
+      - *id001
+      - !!binary |
+        6DV/yd08yj8=
+  - - poni2
+    - !!python/object/apply:numpy.core.multiarray.scalar
+      - *id001
+      - !!binary |
+        8Hv+aSSC1j8=
+  - - rot1
+    - !!python/object/apply:numpy.core.multiarray.scalar
+      - *id001
+      - !!binary |
+        YKF7GRtHYz8=
+  - - rot2
+    - !!python/object/apply:numpy.core.multiarray.scalar
+      - *id001
+      - !!binary |
+        5T+Lfu6dYb8=
+  - - rot3
+    - !!python/object/apply:numpy.core.multiarray.scalar
+      - *id001
+      - !!binary |
+        KO39rWOV2T4=
+  - [wavelength, 1.8668100000000004e-11]
+  - [pixelX, 200.0]
+  - [pixelY, 200.0]
+  - [splineFile, null]
+  - - directDist
+    - !!python/object/apply:numpy.core.multiarray.scalar
+      - *id001
+      - !!binary |
+        hIkHfo3mlUA=
+  - - centerX
+    - !!python/object/apply:numpy.core.multiarray.scalar
+      - *id001
+      - !!binary |
+        WCbkuuU3m0A=
+  - - centerY
+    - !!python/object/apply:numpy.core.multiarray.scalar
+      - *id001
+      - !!binary |
+        ygImE7uOj0A=
+  - - tilt
+    - !!python/object/apply:numpy.core.multiarray.scalar
+      - *id001
+      - !!binary |
+        f/bFQRdhxz8=
+  - - tiltPlanRotation
+    - !!python/object/apply:numpy.core.multiarray.scalar
+      - *id001
+      - !!binary |
+        08WkBHoyYcA=
+  - [poni_file_name, /tmp/tmpm__p8tni/from_calib_func.poni]
+  - [time, 20170930-045303]
+  - - dSpacing
+    - [2.03458234862, 1.761935, 1.24592214845, 1.06252597829, 1.01729117431, 0.881,
+      0.80846104616, 0.787990355271, 0.719333487797, 0.678194116208, 0.622961074225,
+      0.595664718733, 0.587333333333, 0.557193323722, 0.537404961852, 0.531262989146,
+      0.508645587156, 0.493458701611, 0.488690872874, 0.47091430825, 0.458785722296,
+      0.4405, 0.430525121912, 0.427347771314]
+  - [calibrant_name, undefined]
