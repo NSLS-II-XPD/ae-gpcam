@@ -142,13 +142,13 @@ class Accumulator(DocumentRouter):
         Qs = np.array([d["data"]["q"] for d in self._event_cache])
         self.fig
 
-        sub_Q, sub_I, alphas = decomposition(Qs, Is, q_range=(2.0, 4.0), n_components=3)
+        sub_Q, sub_I, alphas = decomposition(Qs, Is, q_range=(2.0, 4.0), n_components=3, bkg_removal=8, normalize=True)
 
         # nuke everything
         self.fig.clf()
         # make new axes
-        axes = self.fig.subplots(1, 3)
-        example_plot(sub_Q, sub_I, alphas, axes=axes)
+        axes = self.fig.subplots(1, 4)
+        example_plot(sub_Q, sub_I, alphas, axes=axes[:3], sax=axes[3], summary_fig=True)
         self.fig.canvas.draw_idle()
         self.fig.canvas.flush_events()
         print(f"Currently has {len(self._event_cache)} datasets")
