@@ -89,7 +89,7 @@ class XCACompanion():
                         continue
                     else:
                         self.cache.add(tuple(proposal))
-                        proposals.append(self.strip_transforms.inverse(proposal))
+                        proposals.append(self.strip_transforms.inverse(*proposal))
                         if len(proposals) >= n:
                             return proposals
                         else:
