@@ -100,22 +100,27 @@ def single_strip_transform_factory(
         if Ti_frac > np.max(ti_fractions) or Ti_frac < np.min(ti_fractions):
             raise ValueError
 
-        d = np.interp(Ti_frac, ti_fractions, cell_positions) + start_distance
-        print(reference_x, np.cos(angle) * d, reference_y, np.sin(angle) * d)
-        return reference_x + np.cos(angle) * d, reference_y + np.sin(angle) * d
+        d = (
+            np.interp(Ti_frac, ti_fractions, cell_positions)
+            - start_distance
+            + (cell_size / 2)
+        )
+
+        # minus because we index the cells backwards
+        return reference_x - np.cos(angle) * d, reference_y - np.sin(angle) * d
 
     def to_data_coords(x, y):
-        x_rel = x - reference_x
+        # negative because we index the cells backwards
+        x_rel = -(x - reference_x)
         y_rel = y - reference_y
 
         r = np.hypot(x_rel, y_rel)
 
-        d_angle = np.arctan2(y_rel, x_rel)
+        d_angle = -np.arctan2(y_rel, x_rel)
 
         from_center_angle = d_angle - angle
-
-        d = np.cos(from_center_angle) * r - start_distance
-        h = np.sin(from_center_angle) * r
+        d = np.cos(from_center_angle) * (r + start_distance - (cell_size / 2))
+        h = -np.sin(from_center_angle) * r
 
         if not (np.min(cell_positions) < d < np.max(cell_positions)):
             raise ValueError
@@ -347,7 +352,7 @@ _layout_template = [
         temperature=340,
         annealing_time=450,
         ti_fractions=[19, 22, 27, 30, 35, 40, 44, 49, 53],
-        start_distance=18.5,
+        start_distance=-13.5,
         reference_y=0,
         reference_x=5,
         angle=0,
@@ -357,7 +362,7 @@ _layout_template = [
         temperature=340,
         annealing_time=1800,
         ti_fractions=[19, 20, 23, 28, 32, 37, 42, 46, 51, 56, 60],
-        start_distance=14.0,
+        start_distance=-9.0,
         reference_y=0,
         reference_x=5,
         angle=0,
@@ -367,7 +372,7 @@ _layout_template = [
         temperature=340,
         annealing_time=3600,
         ti_fractions=[16, 18, 22, 25, 29, 34, 36, 43, 49, 53, 58, 62, 67],
-        start_distance=9.5,
+        start_distance=-4.5,
         reference_y=0,
         reference_x=5,
         angle=0,
@@ -377,7 +382,7 @@ _layout_template = [
         temperature=400,
         annealing_time=450,
         ti_fractions=[17, 20, 23, 27, 31, 36, 41, 46, 51, 56, 61, 65, 69],
-        start_distance=9.5,
+        start_distance=-4.5,
         reference_y=0,
         reference_x=5,
         angle=0,
@@ -387,7 +392,7 @@ _layout_template = [
         temperature=400,
         annealing_time=1800,
         ti_fractions=[20, 23, 27, 32, 37, 42, 47, 51, 57, 63, 67, 71, 75, 78, 81],
-        start_distance=5,
+        start_distance=0,
         reference_y=0,
         reference_x=5,
         angle=0,
@@ -397,7 +402,7 @@ _layout_template = [
         temperature=400,
         annealing_time=3600,
         ti_fractions=[19, 22, 25, 30, 35, 39, 45, 50, 55, 60, 65, 69, 73, 77, 79],
-        start_distance=5,
+        start_distance=0,
         reference_y=0,
         reference_x=5,
         angle=0,
@@ -407,7 +412,7 @@ _layout_template = [
         temperature=460,
         annealing_time=450,
         ti_fractions=[17, 20, 24, 28, 32, 37, 43, 48, 52, 58, 63, 67, 71, 75, 78],
-        start_distance=5,
+        start_distance=0,
         reference_y=0,
         reference_x=5,
         angle=0,
@@ -417,7 +422,7 @@ _layout_template = [
         temperature=460,
         annealing_time=15 * 60,
         ti_fractions=[17, 19, 22, 26, 31, 35, 40, 46, 51, 56, 61, 65, 69, 73, 76],
-        start_distance=5,
+        start_distance=0,
         reference_y=0,
         reference_x=5,
         angle=0,
@@ -427,7 +432,7 @@ _layout_template = [
         temperature=460,
         annealing_time=30 * 60,
         ti_fractions=[15, 18, 21, 25, 28, 33, 38, 43, 48, 53, 58, 63, 67, 71, 75],
-        start_distance=5,
+        start_distance=0,
         reference_y=0,
         reference_x=5,
         angle=0,
@@ -437,7 +442,7 @@ _layout_template = [
         temperature=340,
         annealing_time=1800,
         ti_fractions=[19, 20, 23, 28, 32, 37, 42, 46, 51, 56, 60],
-        start_distance=14.0,
+        start_distance=-9.0,
         reference_y=0,
         reference_x=5,
         angle=0,
@@ -447,7 +452,7 @@ _layout_template = [
         temperature=340,
         annealing_time=3600,
         ti_fractions=[16, 18, 22, 25, 29, 34, 36, 43, 49, 53, 58, 62, 67],
-        start_distance=9.5,
+        start_distance=-4.5,
         reference_y=0,
         reference_x=5,
         angle=0,
@@ -457,7 +462,7 @@ _layout_template = [
         temperature=400,
         annealing_time=450,
         ti_fractions=[17, 20, 23, 27, 31, 36, 41, 46, 51, 56, 61, 65, 69],
-        start_distance=9.5,
+        start_distance=-4.5,
         reference_y=0,
         reference_x=5,
         angle=0,
@@ -467,7 +472,7 @@ _layout_template = [
         temperature=400,
         annealing_time=1800,
         ti_fractions=[20, 23, 27, 32, 37, 42, 47, 51, 57, 63, 67, 71, 75, 78, 81],
-        start_distance=5,
+        start_distance=0,
         reference_y=0,
         reference_x=5,
         angle=0,
@@ -477,7 +482,7 @@ _layout_template = [
         temperature=400,
         annealing_time=3600,
         ti_fractions=[19, 22, 25, 30, 35, 39, 45, 50, 55, 60, 65, 69, 73, 77, 79],
-        start_distance=5,
+        start_distance=0,
         reference_y=0,
         reference_x=5,
         angle=0,
@@ -487,7 +492,7 @@ _layout_template = [
         temperature=460,
         annealing_time=450,
         ti_fractions=[17, 20, 24, 28, 32, 37, 43, 48, 52, 58, 63, 67, 71, 75, 78],
-        start_distance=5,
+        start_distance=0,
         reference_y=0,
         reference_x=5,
         angle=0,
@@ -497,7 +502,7 @@ _layout_template = [
         temperature=460,
         annealing_time=15 * 60,
         ti_fractions=[17, 19, 22, 26, 31, 35, 40, 46, 51, 56, 61, 65, 69, 73, 76],
-        start_distance=5,
+        start_distance=0,
         reference_y=0,
         reference_x=5,
         angle=0,
@@ -507,7 +512,7 @@ _layout_template = [
         temperature=460,
         annealing_time=30 * 60,
         ti_fractions=[15, 18, 21, 25, 28, 33, 38, 43, 48, 53, 58, 63, 67, 71, 75],
-        start_distance=5,
+        start_distance=0,
         reference_y=0,
         reference_x=5,
         angle=0,
@@ -532,7 +537,7 @@ sampled_x = [35, 60, 85]
 # fit the above to a line
 fits = [scipy.stats.linregress(sampled_x, m) for m in mpos]
 # get the 0 we need to make the start_distance's above make sense
-ref_x = 35 - 5 - 2 * 4.5
+ref_x = 95 - 1.25
 
 # generate the data by zipping the template + the fit angle and offsets
 single_data = [
@@ -566,14 +571,17 @@ def show_layout(strip_list, ax=None, *, cell_size=4.5):
     labels = {}
     for strip in strip_list:
         cells[strip] = []
-
+        pair = single_strip_transform_factory(*astuple(strip))
         for j, ti_frac in enumerate(strip.ti_fractions):
             color = cmap(norm(ti_frac))
-            d = strip.start_distance + j * cell_size
+            x, y = pair.forward(
+                ti_frac, strip.temperature, strip.annealing_time, strip.thickness
+            )
+            d = strip.start_distance - j * cell_size
             rect = mpatches.Rectangle(
                 (
-                    strip.reference_x + d * np.cos(strip.angle),
-                    strip.reference_y - cell_size / 2 + d * np.sin(strip.angle),
+                    x - cell_size / 2,
+                    y - cell_size / 2,
                 ),
                 cell_size,
                 cell_size,
@@ -582,8 +590,8 @@ def show_layout(strip_list, ax=None, *, cell_size=4.5):
             ax.add_patch(rect)
             cells[strip].append(
                 ax.text(
-                    strip.reference_x + (d + cell_size / 2) * np.cos(strip.angle),
-                    strip.reference_y + (d + cell_size / 2) * np.sin(strip.angle),
+                    x,
+                    y,
                     f"{ti_frac}",
                     ha="center",
                     va="center",
@@ -591,13 +599,12 @@ def show_layout(strip_list, ax=None, *, cell_size=4.5):
                 )
             )
             cells[strip].append(rect)
-
-        full_d = strip.start_distance + (j + 1) * cell_size
+        d = cell_size * (len(strip.ti_fractions) - 0.5) - strip.start_distance
         labels[strip] = ax.annotate(
-            f"{strip.temperature}°C\n{strip.annealing_time}s\n{state_map[strip.thickness]}",
+            f"{strip.temperature}°C\n{strip.annealing_time}s",
             xy=(
-                strip.reference_x + full_d * np.cos(strip.angle),
-                strip.reference_y + full_d * np.sin(strip.angle),
+                strip.reference_x - d - cell_size / 2,
+                strip.reference_y - np.sin(strip.angle) * d,
             ),
             xytext=(10, 0),
             textcoords="offset points",
@@ -613,6 +620,7 @@ def show_layout(strip_list, ax=None, *, cell_size=4.5):
     ax.spines["top"].set_visible(False)
     # positive goes down on the beamline
     ax.invert_yaxis()
+    ax.invert_xaxis()
     ax.set_aspect("equal")
 
 
@@ -625,5 +633,17 @@ if True:
     ax.plot(sampled_x, mpos.T, marker="o", color=".5")
 
     ax.add_patch(
-        mpatches.Rectangle((28.5, 2.5), 64, 80, color="k", alpha=0.25, zorder=2)
+        mpatches.Rectangle((95 - 64, 2.5), 64, 80, color="k", alpha=0.25, zorder=2)
     )
+    plt.show()
+
+
+for strip in single_data:
+    pair = single_strip_transform_factory(*astuple(strip))
+    for j, ti_frac in enumerate(strip.ti_fractions[1:-1]):
+        start = (ti_frac, strip.temperature, strip.annealing_time, strip.thickness)
+        x, y = pair.forward(
+            ti_frac, strip.temperature, strip.annealing_time, strip.thickness
+        )
+        ret = pair.inverse(np.round(x, 2), y)
+        assert np.allclose(start, ret, atol=0.01)

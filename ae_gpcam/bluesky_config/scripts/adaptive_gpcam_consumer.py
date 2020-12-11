@@ -110,15 +110,17 @@ def recommender_factory(
             ####independent, measurement, variances: 2d numpy arrays
             ####value pos: 3d numpy arrays
             lom = None
+            init_hyperparameters = None
             print("telling data ...")
             if len(gp_optimizer_obj.points) in [5, 20, 100, 200, 400]:
                 lom = "global"
+                init_hyperparameters = np.ones((4))
             t0 = time.time()
             gp_optimizer_obj.tell(
                 independent,
                 measurement,
                 variances=variances,
-                init_hyperparameters=np.ones((4)),
+                init_hyperparameters=init_hyperparameters,
                 value_positions=value_positions,
                 likelihood_optimization_method=lom,
                 measurement_costs=None,
