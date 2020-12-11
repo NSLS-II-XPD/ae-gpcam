@@ -77,9 +77,9 @@ class XCACompanion():
         -------
 
         """
-        n = min(n, self.independent)  # Avoid unecessary looping.
+        n = min(n, len(self.independent))  # Avoid unecessary looping.
         proposals = []
-        for current_y in self.strip_ys: # Strip ys is a cycle, so will continue indefinitely
+        for current_y in self.strip_ys:  # Strip ys is a cycle, so will continue indefinitely
             # Get our interesting indexes sorted according to phase where the strip is current
             for phase in self.phase_idx:
                 jdxs = np.argsort(self.dependent[phase])[self.independent[:, 1] == current_y]
@@ -124,14 +124,21 @@ class XCACompanion():
         -------
 
         """
-        X = np.array(ys)
+        keep_i = []
+        new_independents = []
+        for i in range(xs.shape[0]):
+            try:
+                new_independents.append(self.strip_transforms.forward(*xs[i, :]))
+            except ValueError:
+                continue
+            keep_i.append(i)
+        X = np.array(ys)[keep_i, :]
         y_preds = self.predict(X)
-
         if self.independent is None:
-            self.independent = np.array([self.strip_transforms.forward(*x) for x in xs])
+            self.independent = np.array(new_independents)
             self.dependent = y_preds
         else:
-            self.independent = np.vstack([self.independent, np.array([self.strip_transforms.forward(*x) for x in xs])])
+            self.independent = np.vstack([self.independent, new_independents])
             self.dependent = np.vstack([self.dependent, y_preds])
 
 
@@ -156,11 +163,10 @@ if __name__ == "__main__":
         ds = cat[name].primary.read()
     science_pos, x, y, Q, I, roi = pre_process(ds, xca.strip_transforms)
     measurement = np.stack([np.array(Q), np.array(I)], axis=-1)
-    independent = np.array(science_pos) # 4 space
+    independent = np.array(science_pos)  # 4 space
 
     xca.tell_many(independent, measurement)
     proposals = xca.ask(10)
     print(proposals)
     proposals = xca.ask(10)
     print(proposals)
-
