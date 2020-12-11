@@ -82,7 +82,7 @@ class XCACompanion():
         for current_y in self.strip_ys:  # Strip ys is a cycle, so will continue indefinitely
             # Get our interesting indexes sorted according to phase where the strip is current
             for phase in self.phase_idx:
-                jdxs = np.argsort(self.dependent[phase])[self.independent[:, 1] == current_y]
+                jdxs = np.argsort(self.dependent[:, phase])[np.abs(self.independent[:, 1] - current_y) < 4.5/2]
                 for j in jdxs:
                     proposal = self.independent[j, :]
                     if tuple(proposal) in self.cache:
@@ -133,7 +133,7 @@ class XCACompanion():
                 continue
             keep_i.append(i)
         X = np.array(ys)[keep_i, :]
-        y_preds = self.predict(X)
+        y_preds = np.array(self.predict(X))
         if self.independent is None:
             self.independent = np.array(new_independents)
             self.dependent = y_preds
