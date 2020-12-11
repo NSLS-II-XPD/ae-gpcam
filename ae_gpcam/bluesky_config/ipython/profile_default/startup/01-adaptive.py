@@ -537,7 +537,7 @@ sampled_x = [35, 60, 85]
 # fit the above to a line
 fits = [scipy.stats.linregress(sampled_x, m) for m in mpos]
 # get the 0 we need to make the start_distance's above make sense
-ref_x = 95 + 1
+ref_x = 95 - 1.25
 
 # generate the data by zipping the template + the fit angle and offsets
 single_data = [
