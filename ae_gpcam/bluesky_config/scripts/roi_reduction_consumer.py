@@ -117,6 +117,22 @@ class ROIPicker(DocumentRouter):
         self._databroker = Broker.named("xpd")
 
     def start(self, doc):
+        """
+        {'adaptive_step': {'requested': {'ctrl_Ti': 24,
+                                 'ctrl_annealing_time': 1800,
+                                 'ctrl_temp': 340,
+                                 'ctrl_thickness': 0},
+                   'snapped': {'ctrl_Ti': 24.0,
+                               'ctrl_annealing_time': 1800,
+                               'ctrl_temp': 340,
+                               'ctrl_thickness': 0}},
+
+        """
+        #print(f"start document:\n{pprint.pformat(doc)}")
+        if "adaptive_step" in doc:
+            self.snapped_target = doc["adaptive_step"]["snapped"]
+            print(f"found target in start doc\n{pprint.pformat(self.snapped_target)}")
+
         self._source_uid = doc["original_start_uid"]
         self._sample_name = doc.get("sample_name", None)
         self.start_bundle = compose_run(
@@ -131,6 +147,12 @@ class ROIPicker(DocumentRouter):
                 name="primary",
                 data_keys={
                     "I_00": {
+                        "dtype": "number",
+                        "source": "computed",
+                        "units": "arb",
+                        "shape": [],
+                    },
+                    "I_00_variance": {
                         "dtype": "number",
                         "source": "computed",
                         "units": "arb",
@@ -200,11 +222,12 @@ class ROIPicker(DocumentRouter):
                 # pick the center of the peak as the Q
                 "Q_00": np.mean(peak_location),
                 # mirror out the control values
-                "ctrl_Ti": doc["data"]["ctrl_Ti"],
-                "ctrl_annealing_time": doc["data"]["ctrl_annealing_time"],
-                "ctrl_temp": doc["data"]["ctrl_temp"],
-                "ctrl_thickness": doc["data"]["ctrl_thickness"]
+                #"ctrl_Ti": 0,
+                #"ctrl_annealing_time": 0,
+                #"ctrl_temp": 0,
+                #"ctrl_thickness": 0
             }
+            data.update(self.snapped_target)
             self._data.append(data)
 
             # import matplotlib.pyplot as plt

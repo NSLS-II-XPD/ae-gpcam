@@ -118,7 +118,7 @@ def recommender_factory(
                 independent,
                 measurement,
                 variances=variances,
-                init_hyperparameters=np.ones((3)),
+                init_hyperparameters=np.ones((4)),
                 value_positions=value_positions,
                 likelihood_optimization_method=lom,
                 measurement_costs=None,
@@ -200,7 +200,7 @@ redis_queue = RedisQueue(
 )
 
 gpopt = gp_optimizer.GPOptimizer(
-    input_space_dimension=3,
+    input_space_dimension=4,
     output_space_dimension=1,
     output_number=1,
     index_set_bounds=[[16, 81], [7.5, 60], [340, 460], [0, 1]],
