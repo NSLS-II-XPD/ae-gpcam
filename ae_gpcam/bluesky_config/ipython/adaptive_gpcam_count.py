@@ -48,7 +48,7 @@ xrun(
     5,
     adaptive_plan(
         [pe1c],
-        (24, 340, 30 * 60),
+        (24, 340, 30 * 60, 0),
         to_recommender=to_recommender,
         from_recommender=redis_queue,
         reccomender_timeout=60,
@@ -56,7 +56,8 @@ xrun(
         transform_pair=pair,
         snap_function=snap_function,
         take_data=stepping_ct,
-        exposure=5
+        exposure=5,
+        max_runs=2
     ),
     #print
     #lambda name, doc: pprint.pprint(doc) if name == 'start' else None
