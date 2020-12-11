@@ -87,7 +87,7 @@ def single_strip_transform_factory(
     _annealing_time = int(annealing_time)
     _thickness = int(thickness)
 
-    cell_positions = np.arange(len(ti_fractions)) * cell_size + (cell_size / 2)
+    cell_positions = np.arange(len(ti_fractions)) * cell_size
 
     def to_bl_coords(Ti_frac, temperature, annealing_time, thickness):
         if (
@@ -100,7 +100,11 @@ def single_strip_transform_factory(
         if Ti_frac > np.max(ti_fractions) or Ti_frac < np.min(ti_fractions):
             raise ValueError
 
-        d = np.interp(Ti_frac, ti_fractions, cell_positions) - start_distance
+        d = (
+            np.interp(Ti_frac, ti_fractions, cell_positions)
+            - start_distance
+            + (cell_size / 2)
+        )
 
         # minus because we index the cells backwards
         return reference_x - np.cos(angle) * d, reference_y - np.sin(angle) * d
@@ -115,7 +119,7 @@ def single_strip_transform_factory(
         d_angle = -np.arctan2(y_rel, x_rel)
 
         from_center_angle = d_angle - angle
-        d = np.cos(from_center_angle) * r + start_distance
+        d = np.cos(from_center_angle) * (r + start_distance - (cell_size / 2))
         h = -np.sin(from_center_angle) * r
 
         if not (np.min(cell_positions) < d < np.max(cell_positions)):
@@ -533,7 +537,7 @@ sampled_x = [35, 60, 85]
 # fit the above to a line
 fits = [scipy.stats.linregress(sampled_x, m) for m in mpos]
 # get the 0 we need to make the start_distance's above make sense
-ref_x = 95 + 1.5
+ref_x = 95 + 1
 
 # generate the data by zipping the template + the fit angle and offsets
 single_data = [
@@ -620,7 +624,7 @@ def show_layout(strip_list, ax=None, *, cell_size=4.5):
     ax.set_aspect("equal")
 
 
-if False:
+if True:
     import matplotlib.pyplot as plt
 
     fig, ax = plt.subplots()
