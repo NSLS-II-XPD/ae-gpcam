@@ -642,4 +642,4 @@ for strip in single_data:
             ti_frac, strip.temperature, strip.annealing_time, strip.thickness
         )
         ret = pair.inverse(np.round(x, 2), y)
-        print(f"{start} {(x, y)} {ret}")
+        assert np.allclose(start, ret, atol=0.01)
