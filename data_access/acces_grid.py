@@ -308,12 +308,25 @@ def pre_process(data):
 
     science_pos = pd.DataFrame(
         science_pos,
-        columns=("ctrl_Ti", "ctrl_temp", "ctrl_annealing_time", "ctl_thickness"),
+        columns=("ctrl_Ti", "ctrl_temp", "ctrl_annealing_time", "ctrl_thickness"),
     )
 
     roi = np.array([compute_peak_area(q, i, *peak_location) for q, i in zip(Q, I)])
 
     return science_pos, x, y, Q, I, roi
+
+
+def mask(science_pos, x, y, Q, I, roi):
+    i_mask = ~pd.isna(science_pos["ctrl_Ti"])
+
+    return (
+        science_pos[i_mask],
+        x.values[i_mask],
+        y.values[i_mask],
+        Q.values[i_mask],
+        I.values[i_mask],
+        roi[i_mask],
+    )
 
 
 # ######################
@@ -334,3 +347,4 @@ peak_location = [2.925, 2.974]
 
 data = h.primary.read()
 science_pos, x, y, Q, I, roi = pre_process(data)
+science_pos, x, y, Q, I, roi = mask(science_pos, x, y, Q, I, roi)
