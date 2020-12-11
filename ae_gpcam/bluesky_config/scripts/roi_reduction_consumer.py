@@ -373,7 +373,7 @@ d = RemoteDispatcher(
 zmq_publisher = zmqPublisher(
     f"{args.zmq_host}:{args.zmq_publish_port}", prefix=args.zmq_publish_prefix.encode()
 )
-peak_location = (2.63, 2.7)
+peak_location = (2.925, 2.974)
 rr = RunRouter([xpdan_result_picker_factory(zmq_publisher, peak_location)])
 d.subscribe(rr)
 
