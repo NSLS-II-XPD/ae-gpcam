@@ -45,10 +45,10 @@ pair = single_strip_set_transform_factory(single_data)
 snap_function = snap_factory(single_data, time_tol=None, temp_tol=None, Ti_tol=None)
 
 xrun(
-    5,
+    10,
     adaptive_plan(
-        [pe1c],
-        (24, 340, 30 * 60, 0),
+        [pe2c],
+        (18, 400, 7.5 * 60, 1),
         to_recommender=to_recommender,
         from_recommender=redis_queue,
         reccomender_timeout=60,
@@ -56,8 +56,10 @@ xrun(
         transform_pair=pair,
         snap_function=snap_function,
         take_data=stepping_ct,
-        exposure=5,
-        max_runs=2
+        exposure=20,
+        max_runs=10000,
+        rocking_range=0.5,
+        num=3
     ),
     #print
     #lambda name, doc: pprint.pprint(doc) if name == 'start' else None
