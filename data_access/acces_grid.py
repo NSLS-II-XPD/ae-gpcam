@@ -292,7 +292,7 @@ def compute_peak_area(Q, I, q_start, q_stop):
     return np.sum((data_section - background) * dQ)
 
 
-def pre_process(data):
+def pre_process(data, pair, peak_location=(2.925, 2.974)):
     I = data["mean"]
     Q = data["q"]
     x, y = (data["sample_x"], data["ss_stg2_y"])
@@ -346,5 +346,5 @@ if __name__ == "__main__":
 
 
     data = h.primary.read()
-    science_pos, x, y, Q, I, roi = pre_process(data)
+    science_pos, x, y, Q, I, roi = pre_process(data, pair, peak_location)
     science_pos, x, y, Q, I, roi = mask(science_pos, x, y, Q, I, roi)
