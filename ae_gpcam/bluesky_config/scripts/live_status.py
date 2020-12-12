@@ -1,4 +1,5 @@
 from dataclasses import astuple
+import pprint
 
 import numpy as np
 
@@ -10,6 +11,10 @@ from bluesky.callbacks.mpl_plotting import LiveScatter
 import databroker
 import matplotlib.pyplot as plt
 
+from bluesky.utils import install_qt_kicker
+# force qt import
+import matplotlib.backends.backend_qt5
+
 from strip_structure import (
     single_strip_transform_factory,
     single_strip_set_transform_factory,
@@ -17,7 +22,8 @@ from strip_structure import (
     compute_peak_area,
 )
 
-strip_list = load_from_json("/tmp/layout.json")
+
+strip_list = load_from_json("../../../data_access/layout.json")
 
 
 def plot_base(strip_list, ax=None, *, cell_size=4.5):
@@ -101,8 +107,16 @@ class SummingScatter(LiveScatter):
             # todo YOLO on thread safety!
             plot_base(strip_list, ax=self.ax)
         self._ae_info = doc["adaptive_step"]["snapped"]
+        print("got a start document")
+        pprint.pprint(self._ae_info)
 
     def event(self, doc):
+        if "q" not in doc["data"]:
+            # ignore these events
+            print(f"ignoring event without 'q'")
+            return
+
+        print(f"got an event document")
         peak_location = [2.925, 2.974]
         ae_pos = self._ae_info
         x, y = self.pair.forward(
@@ -124,14 +138,48 @@ class SummingScatter(LiveScatter):
         super().event(doc)
 
 
-cat = databroker._drivers.msgpack.BlueskyMsgpackCatalog(
-    "/mnt/data/bnl/2020-12_ae/day2_reduced/*msgpack"
-)
-fig, ax = plt.subplots()
-ss = SummingScatter("x", "y", "I_00", strip_list=strip_list, ax=ax)
-for uid in cat:
-    for name, doc in cat[uid].canonical(fill="no"):
-        ss(name, doc)
-ax.set_aspect("equal", adjustable="datalim")
-ax.invert_xaxis()
-ax.invert_yaxis()
+
+
+if __name__ == "__main__":
+
+    install_qt_kicker()
+    
+    cat = databroker._drivers.msgpack.BlueskyMsgpackCatalog(
+        "/home/tcaswell/reduced/*msgpack"
+    )
+
+    fig, ax = plt.subplots()
+    ss = SummingScatter("x", "y", "I_00", strip_list=strip_list, ax=ax)
+    for uid in cat:
+        print(uid)
+        for name, doc in cat[uid].canonical(fill="no"):
+            ss(name, doc)
+
+    ax.set_aspect("equal", adjustable="datalim")
+    ax.invert_xaxis()
+    ax.invert_yaxis()
+
+    import argparse
+    from roi_reduction_consumer import RemoteDispatcher
+
+    arg_parser = argparse.ArgumentParser()
+    # subscribe to 0MQ messages at XPD from xf28id2-ca1:5578
+    arg_parser.add_argument("--zmq-host", type=str, default="xf28id2-ca1")
+    arg_parser.add_argument("--zmq-subscribe-port", type=int, default=5578)
+    arg_parser.add_argument("--zmq-subscribe-prefix", type=str, default="an")
+
+    args = arg_parser.parse_args()
+
+    pprint.pprint(vars(args))
+
+    # this process listens for 0MQ messages with prefix "an" (from xpdan)
+    d = RemoteDispatcher(
+        f"{args.zmq_host}:{args.zmq_subscribe_port}",
+        prefix=args.zmq_subscribe_prefix.encode(),
+    )
+
+    d.subscribe(ss)
+
+    print(f"LIVE STATUS IS LISTENING ON {args.zmq_subscribe_prefix.encode()}")
+    d.start()
+
