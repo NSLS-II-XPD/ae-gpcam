@@ -292,7 +292,7 @@ def compute_peak_area(Q, I, q_start, q_stop):
     return np.sum((data_section - background) * dQ)
 
 
-def pre_process(data):
+def pre_process(data, pair, peak_location=(2.925, 2.974)):
     I = data["mean"]
     Q = data["q"]
     x, y = (data["sample_x"], data["ss_stg2_y"])
@@ -328,23 +328,23 @@ def mask(science_pos, x, y, Q, I, roi):
         roi[i_mask],
     )
 
-
-# ######################
-#
-# set up
-
-
-strip_list = load_from_json("layout.json")
-pair = single_strip_set_transform_factory(strip_list)
-cat = databroker._drivers.msgpack.BlueskyMsgpackCatalog("*.msgpack")
-h = cat["73ac6ea4-a528-4fb7-ae2f-eb44ed8d684d"]
-peak_location = [2.925, 2.974]
-
-# ######################
-#
-# data extraction / computation
+if __name__ == "__main__":
+    # ######################
+    #
+    # set up
 
 
-data = h.primary.read()
-science_pos, x, y, Q, I, roi = pre_process(data)
-science_pos, x, y, Q, I, roi = mask(science_pos, x, y, Q, I, roi)
+    strip_list = load_from_json("layout.json")
+    pair = single_strip_set_transform_factory(strip_list)
+    cat = databroker._drivers.msgpack.BlueskyMsgpackCatalog("*.msgpack")
+    h = cat["73ac6ea4-a528-4fb7-ae2f-eb44ed8d684d"]
+    peak_location = [2.925, 2.974]
+
+    # ######################
+    #
+    # data extraction / computation
+
+
+    data = h.primary.read()
+    science_pos, x, y, Q, I, roi = pre_process(data, pair, peak_location)
+    science_pos, x, y, Q, I, roi = mask(science_pos, x, y, Q, I, roi)
