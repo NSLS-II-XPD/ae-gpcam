@@ -349,34 +349,35 @@ def womp_womp(docp):
     return doc
 
 
-arg_parser = argparse.ArgumentParser()
+if __name__ == "__main__":
+    arg_parser = argparse.ArgumentParser()
 
-# publish 0MQ messages at XPD from xf28id2-ca1:5577
-# subscribe to 0MQ messages at XPD from xf28id2-ca1:5578
-arg_parser.add_argument("--zmq-host", type=str, default="xf28id2-ca1")
-arg_parser.add_argument("--zmq-publish-port", type=int, default=5577)
-arg_parser.add_argument("--zmq-publish-prefix", type=str, default="rr")
-arg_parser.add_argument("--zmq-subscribe-port", type=int, default=5578)
-arg_parser.add_argument("--zmq-subscribe-prefix", type=str, default="an")
+    # publish 0MQ messages at XPD from xf28id2-ca1:5577
+    # subscribe to 0MQ messages at XPD from xf28id2-ca1:5578
+    arg_parser.add_argument("--zmq-host", type=str, default="xf28id2-ca1")
+    arg_parser.add_argument("--zmq-publish-port", type=int, default=5577)
+    arg_parser.add_argument("--zmq-publish-prefix", type=str, default="rr")
+    arg_parser.add_argument("--zmq-subscribe-port", type=int, default=5578)
+    arg_parser.add_argument("--zmq-subscribe-prefix", type=str, default="an")
 
-args = arg_parser.parse_args()
+    args = arg_parser.parse_args()
 
-pprint.pprint(vars(args))
+    pprint.pprint(vars(args))
 
-# this process listens for 0MQ messages with prefix "an" (from xpdan)
-d = RemoteDispatcher(
-    f"{args.zmq_host}:{args.zmq_subscribe_port}",
-    prefix=args.zmq_subscribe_prefix.encode(),
-    #deserializer=womp_womp,
-)
+    # this process listens for 0MQ messages with prefix "an" (from xpdan)
+    d = RemoteDispatcher(
+        f"{args.zmq_host}:{args.zmq_subscribe_port}",
+        prefix=args.zmq_subscribe_prefix.encode(),
+        #deserializer=womp_womp,
+    )
 
-zmq_publisher = zmqPublisher(
-    f"{args.zmq_host}:{args.zmq_publish_port}", prefix=args.zmq_publish_prefix.encode()
-)
-peak_location = (2.925, 2.974)
-rr = RunRouter([xpdan_result_picker_factory(zmq_publisher, peak_location)])
-d.subscribe(rr)
+    zmq_publisher = zmqPublisher(
+        f"{args.zmq_host}:{args.zmq_publish_port}", prefix=args.zmq_publish_prefix.encode()
+    )
+    peak_location = (2.925, 2.974)
+    rr = RunRouter([xpdan_result_picker_factory(zmq_publisher, peak_location)])
+    d.subscribe(rr)
 
-print(f"ROI REDUCTION CONSUMER IS LISTENING ON {args.zmq_subscribe_prefix.encode()}")
-print(f"AND PUBLISHING ON {args.zmq_publish_prefix.encode()}")
-d.start()
+    print(f"ROI REDUCTION CONSUMER IS LISTENING ON {args.zmq_subscribe_prefix.encode()}")
+    print(f"AND PUBLISHING ON {args.zmq_publish_prefix.encode()}")
+    d.start()
