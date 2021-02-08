@@ -117,6 +117,22 @@ class ROIPicker(DocumentRouter):
         self._databroker = Broker.named("xpd")
 
     def start(self, doc):
+        """
+        {'adaptive_step': {'requested': {'ctrl_Ti': 24,
+                                 'ctrl_annealing_time': 1800,
+                                 'ctrl_temp': 340,
+                                 'ctrl_thickness': 0},
+                   'snapped': {'ctrl_Ti': 24.0,
+                               'ctrl_annealing_time': 1800,
+                               'ctrl_temp': 340,
+                               'ctrl_thickness': 0}},
+
+        """
+        #print(f"start document:\n{pprint.pformat(doc)}")
+        if "adaptive_step" in doc:
+            self.snapped_target = doc["adaptive_step"]["snapped"]
+            print(f"found target in start doc\n{pprint.pformat(self.snapped_target)}")
+
         self._source_uid = doc["original_start_uid"]
         self._sample_name = doc.get("sample_name", None)
         self.start_bundle = compose_run(
@@ -131,6 +147,12 @@ class ROIPicker(DocumentRouter):
                 name="primary",
                 data_keys={
                     "I_00": {
+                        "dtype": "number",
+                        "source": "computed",
+                        "units": "arb",
+                        "shape": [],
+                    },
+                    "I_00_variance": {
                         "dtype": "number",
                         "source": "computed",
                         "units": "arb",
@@ -200,11 +222,12 @@ class ROIPicker(DocumentRouter):
                 # pick the center of the peak as the Q
                 "Q_00": np.mean(peak_location),
                 # mirror out the control values
-                "ctrl_Ti": doc["data"]["ctrl_Ti"],
-                "ctrl_annealing_time": doc["data"]["ctrl_annealing_time"],
-                "ctrl_temp": doc["data"]["ctrl_temp"],
-                "ctrl_thickness": doc["data"]["ctrl_thickness"]
+                #"ctrl_Ti": 0,
+                #"ctrl_annealing_time": 0,
+                #"ctrl_temp": 0,
+                #"ctrl_thickness": 0
             }
+            data.update(self.snapped_target)
             self._data.append(data)
 
             # import matplotlib.pyplot as plt
@@ -326,34 +349,35 @@ def womp_womp(docp):
     return doc
 
 
-arg_parser = argparse.ArgumentParser()
+if __name__ == "__main__":
+    arg_parser = argparse.ArgumentParser()
 
-# publish 0MQ messages at XPD from xf28id2-ca1:5577
-# subscribe to 0MQ messages at XPD from xf28id2-ca1:5578
-arg_parser.add_argument("--zmq-host", type=str, default="xf28id2-ca1")
-arg_parser.add_argument("--zmq-publish-port", type=int, default=5577)
-arg_parser.add_argument("--zmq-publish-prefix", type=str, default="rr")
-arg_parser.add_argument("--zmq-subscribe-port", type=int, default=5578)
-arg_parser.add_argument("--zmq-subscribe-prefix", type=str, default="an")
+    # publish 0MQ messages at XPD from xf28id2-ca1:5577
+    # subscribe to 0MQ messages at XPD from xf28id2-ca1:5578
+    arg_parser.add_argument("--zmq-host", type=str, default="xf28id2-ca1")
+    arg_parser.add_argument("--zmq-publish-port", type=int, default=5577)
+    arg_parser.add_argument("--zmq-publish-prefix", type=str, default="rr")
+    arg_parser.add_argument("--zmq-subscribe-port", type=int, default=5578)
+    arg_parser.add_argument("--zmq-subscribe-prefix", type=str, default="an")
 
-args = arg_parser.parse_args()
+    args = arg_parser.parse_args()
 
-pprint.pprint(vars(args))
+    pprint.pprint(vars(args))
 
-# this process listens for 0MQ messages with prefix "an" (from xpdan)
-d = RemoteDispatcher(
-    f"{args.zmq_host}:{args.zmq_subscribe_port}",
-    prefix=args.zmq_subscribe_prefix.encode(),
-    #deserializer=womp_womp,
-)
+    # this process listens for 0MQ messages with prefix "an" (from xpdan)
+    d = RemoteDispatcher(
+        f"{args.zmq_host}:{args.zmq_subscribe_port}",
+        prefix=args.zmq_subscribe_prefix.encode(),
+        #deserializer=womp_womp,
+    )
 
-zmq_publisher = zmqPublisher(
-    f"{args.zmq_host}:{args.zmq_publish_port}", prefix=args.zmq_publish_prefix.encode()
-)
-peak_location = (2.63, 2.7)
-rr = RunRouter([xpdan_result_picker_factory(zmq_publisher, peak_location)])
-d.subscribe(rr)
+    zmq_publisher = zmqPublisher(
+        f"{args.zmq_host}:{args.zmq_publish_port}", prefix=args.zmq_publish_prefix.encode()
+    )
+    peak_location = (2.925, 2.974)
+    rr = RunRouter([xpdan_result_picker_factory(zmq_publisher, peak_location)])
+    d.subscribe(rr)
 
-print(f"ROI REDUCTION CONSUMER IS LISTENING ON {args.zmq_subscribe_prefix.encode()}")
-print(f"AND PUBLISHING ON {args.zmq_publish_prefix.encode()}")
-d.start()
+    print(f"ROI REDUCTION CONSUMER IS LISTENING ON {args.zmq_subscribe_prefix.encode()}")
+    print(f"AND PUBLISHING ON {args.zmq_publish_prefix.encode()}")
+    d.start()

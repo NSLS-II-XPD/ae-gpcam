@@ -110,15 +110,17 @@ def recommender_factory(
             ####independent, measurement, variances: 2d numpy arrays
             ####value pos: 3d numpy arrays
             lom = None
+            init_hyperparameters = None
             print("telling data ...")
             if len(gp_optimizer_obj.points) in [5, 20, 100, 200, 400]:
                 lom = "global"
+            init_hyperparameters = np.ones((4))
             t0 = time.time()
             gp_optimizer_obj.tell(
                 independent,
                 measurement,
                 variances=variances,
-                init_hyperparameters=np.ones((3)),
+                init_hyperparameters=init_hyperparameters,
                 value_positions=value_positions,
                 likelihood_optimization_method=lom,
                 measurement_costs=None,
@@ -200,10 +202,10 @@ redis_queue = RedisQueue(
 )
 
 gpopt = gp_optimizer.GPOptimizer(
-    input_space_dimension=3,
+    input_space_dimension=4,
     output_space_dimension=1,
     output_number=1,
-    index_set_bounds=[[16, 81], [7.5, 60], [340, 460], [0, 1]],
+    index_set_bounds=[[16, 81], [7.5*60, 60*60], [340, 460], [0, 1]],
     hyperparameter_bounds=[[0.1, 100], [0.1, 100], [0.1, 100], [0.1, 100]],
 )
 
@@ -212,7 +214,7 @@ gpcam_recommender_run_router, _ = recommender_factory(
     independent_keys=["ctrl_Ti", "ctrl_annealing_time", "ctrl_temp", "ctrl_thickness"],
     dependent_keys=["I_00"],
     variance_keys=["I_00_variance"],
-    max_count=1,
+    max_count=10000,
     queue=redis_queue,
 )
 
