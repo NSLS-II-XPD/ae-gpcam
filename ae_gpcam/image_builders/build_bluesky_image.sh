@@ -14,6 +14,8 @@ buildah run $container -- pip3 install databroker-pack
 buildah run -v /vagrant/TiCu_export:/usr/local/share/TiCu_export $container -- databroker-unpack inplace /usr/local/share/TiCu_export xpd_auto_202003_msgpack
 buildah run $container -- pip3 install git+https://github.com/tacaswell/sbu_sim.git@master#egg=sbu_sim
 
+#buildah run -v /vagrant/ae_exfil:/usr/local/share/ae_exfil $container -- databroker-unpack inplace /usr/local/share/ae_exfil ae_exfil
+
 # install gpcam in a conda environment because numba
 # is difficult to install using pip
 # assume gpcam repository has been cloned to /vagrant
