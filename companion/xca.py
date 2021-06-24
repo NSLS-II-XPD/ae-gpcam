@@ -10,6 +10,16 @@ import json
 from bluesky.utils import install_qt_kicker
 from itertools import cycle
 from data_access.acces_grid import single_strip_set_transform_factory, load_from_json
+from dataclasses import dataclass, asdict
+
+
+@dataclass
+class Proposal:
+    phase_of_interest: str
+    x: float
+    y: float
+    sci_coords: list
+    probabilities: list
 
 
 class XCACompanion:
@@ -34,7 +44,8 @@ class XCACompanion:
         self.q_range = q_range
         self.independent = None
         self.dependent = None
-        self.cache = set()
+        self.cache = set()  # Hashable cache of proposals
+        self.proposals = list()  # More data rich list of proposals
 
     def _preprocessing(self, IoQ):
         """Takes array [[Q],[I]] and converts it to relevant Q range for Neural net"""
@@ -114,6 +125,15 @@ class XCACompanion:
                     else:
                         self.cache.add(tuple(proposal))
                         proposals.append(self.strip_transforms.inverse(*proposal))
+                        self.proposals.append(
+                            Proposal(
+                                phase_of_interest=self.phasemap[phase],
+                                x=proposal[0],
+                                y=proposal[1],
+                                sci_coords=proposals[-1],
+                                probabilities=self.dependent[j, :],
+                            )
+                        )
                         if len(proposals) >= n:
                             return proposals
                         else:
@@ -166,13 +186,47 @@ class XCACompanion:
             self.dependent = np.vstack([self.dependent, y_preds])
 
 
+def record_output_probabilities(xca, out_path):
+    """Helper function to record XCA probabilities over initial scan to file"""
+    from pandas import DataFrame
+
+    data_dict = {}
+
+    data_dict["Position 0"] = xca.independent[:, 0]
+    data_dict["Position 1"] = xca.independent[:, 1]
+    for idx in xca.phasemap:
+        data_dict[f"Probability of {xca.phasemap[idx]}"] = xca.dependent[:, idx]
+
+    df = DataFrame.from_dict(data_dict)
+    df.to_csv(out_path)
+    return df
+
+
+def record_detailed_proposals(xca, out_path):
+    from pandas import DataFrame
+
+    dicts = [asdict(p) for p in xca.proposals]
+    df = DataFrame(dicts)
+
+    df[["Ti_frac", "temperature", "annealing_time", "thickness"]] = DataFrame(
+        df["sci_coords"].tolist(), index=df.index
+    )
+    df[[f"Prby {xca.phasemap[i]}" for i in range(4)]] = DataFrame(
+        df["probabilities"].tolist(), index=df.index
+    )
+    del df["probabilities"]
+    del df["sci_coords"]
+    df.to_csv(out_path)
+    return df
+
+
 if __name__ == "__main__":
     from data_access.acces_grid import pre_process
 
     # THIS IS A BAD HACK FOR MAC TESTING #
     import os
 
-    # os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
+    os.environ["KMP_DUPLICATE_LIB_OK"] = "True"
     # THIS IS A BAD HACK FOR MAC TESTING #
 
     import databroker._drivers.msgpack
@@ -222,6 +276,8 @@ if __name__ == "__main__":
     independent = np.array(independent_cache)  # 4 space
     xca.tell_many(independent, measurement)
 
+    df_prby = record_output_probabilities(xca, "output_probabilities.csv")
     proposals1 = xca.ask(27)
     proposals2 = xca.ask(27)
+    df_prop = record_detailed_proposals(xca, "output_proposals.csv")
     #    print(proposals)

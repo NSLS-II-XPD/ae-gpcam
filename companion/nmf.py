@@ -33,8 +33,6 @@ def decomposition(Q, I, n_components=3, q_range=None, max_iter=10000, bkg_remova
 
     nmf = NMF(n_components=n_components, max_iter=max_iter)
 
-
-
     if q_range is None:
         idx_min = 0
         idx_max = I.shape[1]
@@ -53,8 +51,8 @@ def decomposition(Q, I, n_components=3, q_range=None, max_iter=10000, bkg_remova
         bases = np.stack(bases)
         sub_I = sub_I - bases
     if normalize:
-        sub_I = (sub_I - np.min(I, axis=1, keepdims=True)) / (np.max(sub_I, axis=1, keepdims=True) - np.min(sub_I, axis=1, keepdims=True))
-
+        sub_I = (sub_I - np.min(I, axis=1, keepdims=True)) / (
+                np.max(sub_I, axis=1, keepdims=True) - np.min(sub_I, axis=1, keepdims=True))
 
     # Numerical stability of non-negativity
     if np.min(sub_I) < 0:
@@ -63,6 +61,29 @@ def decomposition(Q, I, n_components=3, q_range=None, max_iter=10000, bkg_remova
     alphas = nmf.fit_transform(sub_I)
 
     return sub_Q, sub_I, alphas
+
+
+def waterfall_plot(ax, xs, ys, alt_ordinate=None, sampling=1, offset=1.0, cmap='viridis', **kwargs):
+    indicies = range(0, xs.shape[0])[::sampling]
+
+    cmap = mpl.cm.get_cmap(cmap)
+    norm = mpl.colors.Normalize(vmin=0, vmax=xs.shape[0]//sampling)
+
+    if alt_ordinate is not None:
+        idxs, labels = list(zip(*sorted(zip(range(ys.shape[0]), alt_ordinate), key=lambda x: x[1])))
+    else:
+        idxs = list(range(ys.shape[0]))
+        labels = list(range(ys.shape[0]))
+
+    for plt_i, idx in enumerate(indicies):
+        y = ys[idx, :]
+        y = y + plt_i * offset
+        x = xs[idx, :]
+        ax.plot(x, y, color=cmap(norm(plt_i)))
+
+    ax.set_ylim((0, len(indicies)))
+    ax.set_yticks([0, len(indicies) // 2, len(indicies)])
+    ax.set_yticklabels([labels[0], labels[len(labels)//2], labels[-1]])
 
 
 def waterfall(ax, xs, ys, alphas, color='k', sampling=1, offset=0.2, **kwargs):
@@ -74,7 +95,8 @@ def waterfall(ax, xs, ys, alphas, color='k', sampling=1, offset=0.2, **kwargs):
     return ax
 
 
-def example_plot(sub_Q, sub_I, alphas, axes=None, sax=None, cmap='tab10', alt_ordinate=None, offset=1., summary_fig=False):
+def example_plot(sub_Q, sub_I, alphas, axes=None, sax=None, cmap='tab10', alt_ordinate=None, offset=1.,
+                 summary_fig=False):
     """
     Example plotting of NMF results. Not necessarily for Bluesky deployment
 
@@ -92,7 +114,7 @@ def example_plot(sub_Q, sub_I, alphas, axes=None, sax=None, cmap='tab10', alt_or
     alt_ordinate: array
         Array len sub_I.shape[0], corresponding to an alternative labeled dimension for which to order the stacked plots
     summary_fig: bool
-        Whether to include separate figure of alphas over the ordinate
+        Whether to include separate figure o alphas over the ordinate
 
     Returns
     -------
@@ -105,7 +127,7 @@ def example_plot(sub_Q, sub_I, alphas, axes=None, sax=None, cmap='tab10', alt_or
     norm = mpl.colors.Normalize(vmin=0, vmax=n_components)
 
     # Create alternative ordinate for the waterfall/stacking
-    if alt_ordinate:
+    if alt_ordinate is not None:
         idxs, labels = list(zip(*sorted(zip(range(sub_I.shape[0]), alt_ordinate), key=lambda x: x[1])))
     else:
         idxs = list(range(sub_I.shape[0]))
@@ -133,11 +155,11 @@ def example_plot(sub_Q, sub_I, alphas, axes=None, sax=None, cmap='tab10', alt_or
 
     if summary_fig:
         if sax is None:
-            sfig, sax = plt.subplots(figsize=(6,6))
+            sfig, sax = plt.subplots(figsize=(6, 6))
 
         sx = np.arange(0, alphas.shape[0])
         for i in range(alphas.shape[1]):
-            sax.plot(sx, alphas[:,alpha_ord[i]], color=cmap(norm(i)), label=f"Component {i+1}")
+            sax.plot(sx, alphas[:, alpha_ord[i]], color=cmap(norm(i)), label=f"Component {i + 1}")
 
         return axes, sax
 
