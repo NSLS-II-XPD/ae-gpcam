@@ -194,7 +194,7 @@ def record_output_probabilities(xca, out_path):
 
     data_dict["Position 0"] = xca.independent[:, 0]
     data_dict["Position 1"] = xca.independent[:, 1]
-    for idx in xca.phase_idx:
+    for idx in xca.phasemap:
         data_dict[f"Probability of {xca.phasemap[idx]}"] = xca.dependent[:, idx]
 
     df = DataFrame.from_dict(data_dict)
