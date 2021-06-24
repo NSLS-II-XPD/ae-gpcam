@@ -12,7 +12,6 @@ import matplotlib.cm as mcm
 import matplotlib.colors as mcolors
 import matplotlib.patches as mpatches
 
-
 # These terms match the pseudo positioner code in ophyd and are standard
 # in motion control.
 

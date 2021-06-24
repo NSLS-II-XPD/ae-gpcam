@@ -12,18 +12,22 @@ from itertools import cycle
 from data_access.acces_grid import single_strip_set_transform_factory, load_from_json
 
 
-class XCACompanion():
-    def __init__(self,
-                 model_name='bkg_ideal',
-                 q_range=(2, 4),
-                 transform_path='../data_access/layout.json',
-                 ignore_phases=('Mg',)):
+class XCACompanion:
+    def __init__(
+        self,
+        model_name="bkg_ideal",
+        q_range=(2, 4),
+        transform_path="../data_access/layout.json",
+        ignore_phases=("Mg",),
+    ):
 
         self.model_name = model_name
-        model_path = Path('./saved_models/') / model_name
+        model_path = Path("./saved_models/") / model_name
         self.model = tf.keras.models.load_model(str(model_path))
-        self.phasemap = {0: 'MgCu2', 1: 'Mg', 2: 'Ti', 3: 'Mg2Cu'}
-        self.phase_idx = [key for key in self.phasemap if self.phasemap[key] not in ignore_phases]
+        self.phasemap = {0: "MgCu2", 1: "Mg", 2: "Ti", 3: "Mg2Cu"}
+        self.phase_idx = [
+            key for key in self.phasemap if self.phasemap[key] not in ignore_phases
+        ]
         self.strip_infos = load_from_json(transform_path)
         self.strip_transforms = single_strip_set_transform_factory(self.strip_infos)
         self.strip_ys = cycle([strip.reference_y for strip in self.strip_infos])
@@ -34,22 +38,38 @@ class XCACompanion():
 
     def _preprocessing(self, IoQ):
         """Takes array [[Q],[I]] and converts it to relevant Q range for Neural net"""
-        if self.model_name in ('background_lite', 'background', 'bkg_limit_texture', 'bkg_ideal'):
+        if self.model_name in (
+            "background_lite",
+            "background",
+            "bkg_limit_texture",
+            "bkg_ideal",
+        ):
             # Qs = np.array(data["q"])
             Qs = IoQ[:, :, 0]
             Is = IoQ[:, :, 1]
             q_range = self.q_range
-            idx_min = np.where(Qs[0, :] < q_range[0])[0][-1] if len(np.where(Qs[0, :] < q_range[0])[0]) else 0
-            idx_max = np.where(Qs[0, :] > q_range[1])[0][0] if len(np.where(Qs[0, :] > q_range[1])[0]) else Is.shape[1]
+            idx_min = (
+                np.where(Qs[0, :] < q_range[0])[0][-1]
+                if len(np.where(Qs[0, :] < q_range[0])[0])
+                else 0
+            )
+            idx_max = (
+                np.where(Qs[0, :] > q_range[1])[0][0]
+                if len(np.where(Qs[0, :] > q_range[1])[0])
+                else Is.shape[1]
+            )
             Is = Is[:, idx_min:idx_max]
-            I_norm = (Is - np.min(Is, axis=1, keepdims=True)) / \
-                     (np.max(Is, axis=1, keepdims=True) - np.min(Is, axis=1, keepdims=True))
+            I_norm = (Is - np.min(Is, axis=1, keepdims=True)) / (
+                np.max(Is, axis=1, keepdims=True) - np.min(Is, axis=1, keepdims=True)
+            )
             # Dimensions are imporant and TF is picky.
             I_norm = np.reshape(I_norm, (-1, 576, 1))
             return I_norm
 
         else:
-            raise ValueError(f"{self.model_name} is not a known model type for preprocessing")
+            raise ValueError(
+                f"{self.model_name} is not a known model type for preprocessing"
+            )
 
     def predict(self, IoQ):
         # Everything should be conceptualized as batch processing of (576, 1) arrays, even if it is a batch of 1
@@ -79,10 +99,14 @@ class XCACompanion():
         """
         n = min(n, len(self.independent))  # Avoid unecessary looping.
         proposals = []
-        for current_y in self.strip_ys:  # Strip ys is a cycle, so will continue indefinitely
+        for (
+            current_y
+        ) in self.strip_ys:  # Strip ys is a cycle, so will continue indefinitely
             # Get our interesting indexes sorted according to phase where the strip is current
             for phase in self.phase_idx:
-                jdxs = np.argsort(self.dependent[:, phase])[np.abs(self.independent[:, 1] - current_y) < 4.5/2]
+                jdxs = np.argsort(self.dependent[:, phase])[
+                    np.abs(self.independent[:, 1] - current_y) < 4.5 / 2
+                ]
                 for j in jdxs:
                     proposal = self.independent[j, :]
                     if tuple(proposal) in self.cache:
@@ -144,29 +168,60 @@ class XCACompanion():
 
 if __name__ == "__main__":
     from data_access.acces_grid import pre_process
+
     # THIS IS A BAD HACK FOR MAC TESTING #
     import os
 
-    os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
+    # os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
     # THIS IS A BAD HACK FOR MAC TESTING #
 
-    import databroker
+    import databroker._drivers.msgpack
 
     xca = XCACompanion()
 
     # Creating a pretend document via dictionary
     # Do the work of extract_event_page()
     cat = databroker._drivers.msgpack.BlueskyMsgpackCatalog(
-        str(Path('~/Documents/Project-Adaptive/KarenChenWiegart/kyc_day1/*').expanduser()))
-    for name in cat:
+        "/mnt/data/bnl/2020-12_ae/kyc_day1/*.msgpack"
+    )
+
+    for name in ["73ac6ea4-a528-4fb7-ae2f-eb44ed8d684d"]:
         print(name)
         ds = cat[name].primary.read()
+
     science_pos, x, y, Q, I, roi = pre_process(ds, xca.strip_transforms)
     measurement = np.stack([np.array(Q), np.array(I)], axis=-1)
     independent = np.array(science_pos)  # 4 space
 
     xca.tell_many(independent, measurement)
-    proposals = xca.ask(10)
-    print(proposals)
-    proposals = xca.ask(10)
-    print(proposals)
+
+    cat2 = databroker._drivers.msgpack.BlueskyMsgpackCatalog(
+        "/mnt/data/bnl/2020-12_ae/day2_reduced/*.msgpack"
+    )
+
+    I_cache = []
+    Q_cache = []
+    independent_cache = []
+    for h in (cat2[uid] for uid in cat2):
+        Q_cache.append(cat2[-1].primary().read()["q"].mean(axis=0).values)
+        I_cache.append(cat2[-1].primary().read()["mean"].mean(axis=0).values)
+        d = h.metadata["start"]["adaptive_step"]["snapped"]
+        independent_cache.append(
+            [
+                d[k]
+                for k in [
+                    "ctrl_Ti",
+                    "ctrl_temp",
+                    "ctrl_annealing_time",
+                    "ctrl_thickness",
+                ]
+            ]
+        )
+
+    measurement = np.stack([np.array(Q_cache), np.array(I_cache)], axis=-1)
+    independent = np.array(independent_cache)  # 4 space
+    xca.tell_many(independent, measurement)
+
+    proposals1 = xca.ask(27)
+    proposals2 = xca.ask(27)
+    #    print(proposals)
