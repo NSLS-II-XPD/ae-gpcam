@@ -252,8 +252,6 @@ def single_strip_set_transform_factory(strips, *, cell_size=4.5):
                 < strip.reference_y + cell_size / 2
             ):
                 return pair.inverse(x, y)
-            else:
-                print(f"rejected {strip}")
 
         else:
             raise ValueError
