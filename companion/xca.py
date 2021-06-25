@@ -115,9 +115,8 @@ class XCACompanion:
         ) in self.strip_ys:  # Strip ys is a cycle, so will continue indefinitely
             # Get our interesting indexes sorted according to phase where the strip is current
             for phase in self.phase_idx:
-                jdxs = np.argsort(self.dependent[:, phase])[
-                    np.abs(self.independent[:, 1] - current_y) < 4.5 / 2
-                ]
+                idxs = np.argsort(self.dependent[:, phase])[::-1]
+                jdxs = [i for i in idxs if np.abs(self.independent[i, 1] - current_y) < 4.5 / 2]
                 for j in jdxs:
                     proposal = self.independent[j, :]
                     if tuple(proposal) in self.cache:
@@ -280,4 +279,4 @@ if __name__ == "__main__":
     proposals1 = xca.ask(27)
     proposals2 = xca.ask(27)
     df_prop = record_detailed_proposals(xca, "output_proposals.csv")
-    #    print(proposals)
+    # print(proposals)
