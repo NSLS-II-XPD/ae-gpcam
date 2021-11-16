@@ -94,8 +94,11 @@ def batch_scan(
 
     for p in sample_points:
         ti, *strip = p
-        for j, ti_m in enumerate(np.linspace(ti, ti+ti_range, points)):
-            real_target = transform_pair.forward(ti_m, *strip)
+        for j, ti_m in enumerate(np.linspace(ti-ti_range/2, ti+ti_range/2, points)):
+            try:
+                real_target = transform_pair.forward(ti_m, *strip)
+            except ValueError:
+                print(f'missed {ti_m} {ti}')
             print(f"real target: {real_target}")
 
             # move to the new position

@@ -12,7 +12,6 @@ import matplotlib.cm as mcm
 import matplotlib.colors as mcolors
 import matplotlib.patches as mpatches
 
-
 # These terms match the pseudo positioner code in ophyd and are standard
 # in motion control.
 
@@ -252,8 +251,6 @@ def single_strip_set_transform_factory(strips, *, cell_size=4.5):
                 < strip.reference_y + cell_size / 2
             ):
                 return pair.inverse(x, y)
-            else:
-                print(f"rejected {strip}")
 
         else:
             raise ValueError
