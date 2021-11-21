@@ -1,0 +1,1 @@
+git+git://github.com/bluesky/bluesky-queueserver@main#egg=bluesky-queueserver
