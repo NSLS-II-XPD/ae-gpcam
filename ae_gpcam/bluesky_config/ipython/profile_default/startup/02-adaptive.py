@@ -11,7 +11,6 @@ import bluesky.preprocessors as bpp
 import bluesky.plan_stubs as bps
 import bluesky.plans as bp
 from bluesky.utils import short_uid
-from queue import Empty
 import pprint
 
 from functools import partial
@@ -181,53 +180,40 @@ def stepping_ct(dets, exposure, motor, start, stop, *, md=None, num=3):
     return (yield from bp.scan(dets, motor, start, stop, num, md=_md))
 
 
-def adaptive_plan(
+def SBU_plan(
     dets,
-    first_point,
-    *,
-    to_recommender,
-    from_recommender,
+    point,
+    exposure=30,
     md=None,
+    *,
     transform_pair,
     real_motors,
     snap_function=None,
-    reccomender_timeout=1,
-    exposure=30,
     take_data=rocking_ct,
-    num=None,
     rocking_range=2,
 ):
     """
-    Execute an adaptive scan using an inter-run recommendation engine.
+    Plan to be used with the QueueServer for the SBU experiments.
+
 
     Parameters
     ----------
-    dets : List[OphydObj]
-       The detector to read at each point.  The dependent keys that the
-       recommendation engine is looking for must be provided by these
-       devices.
-
-    first_point : tuple[float, int, int]
+    point : Tuple[float, int, int]
        The first point of the scan.  These values will be passed to the
        forward function and the objects passed in real_motors will be moved.
 
        The order is (Ti_frac, temperature, annealing_time)
 
-    to_recommender : Callable[document_name: str, document: dict]
-       This is the callback that will be registered to the RunEngine.
+    exposure : float
+        The detector exposure time.
 
-       The expected contract is for each event it will place either a
-       dict mapping independent variable to recommended value or None.
-
-       This plan will either move to the new position and take data
-       if the value is a dict or end the run if `None`
-
-    from_recommender : Queue
-       The consumer side of the Queue that the recommendation engine is
-       putting the recommendations onto.
-
-    md : dict[str, Any], optional
+     md : dict[str, Any], optional
        Any extra meta-data to put in the Start document
+
+    dets : List[OphydObj]
+       The detector to read at each point.  The dependent keys that the
+       recommendation engine is looking for must be provided by these
+       devices.
 
     take_reading : plan
         function to do the actual acquisition ::
@@ -259,16 +245,14 @@ def adaptive_plan(
           def inverse(x, y):
                return Ti_frac, temperature, annealing_time
 
+    real_motors : Tuple[motor, motor]
+        The real (x, y) motors to move.
+
     snap_function : Callable, optional
         "snaps" the requested measurement to the nearest available point ::
 
            def snap(Ti, temperature, time):
                returns snapped_Ti, snapped_temperature, snapped_time
-
-    reccomender_timeout : float, optional
-
-        How long to wait for the reccomender to respond before giving
-        it up for dead.
 
     """
 
@@ -279,10 +263,9 @@ def adaptive_plan(
     pseudo_axes = tuple(getattr(ctrl, k) for k in ctrl.component_names)
     # convert the first_point variable to from we will be getting from
     # queue
-    first_point = {m.name: v for m, v in zip(pseudo_axes, first_point)}
+    first_point = {m.name: v for m, v in zip(pseudo_axes, point)}
 
     _md = {
-        "batch_id": str(uuid.uuid4()),
         "ticu_adaptive": {
             "rocking_range": rocking_range,
             "take_data": take_data.__name__,
@@ -290,94 +273,62 @@ def adaptive_plan(
             "snap_tolerance": (
                 getattr(snap_function, "tols") if snap_function is not None else {}
             ),
-            "num": num if num is not None else "None",
         },
     }
 
     _md.update(md or {})
 
     take_data_kwargs = {}
-    if num is not None:
-        take_data_kwargs["num"] = num
 
-    @bpp.subs_decorator(to_recommender)
-    def gp_inner_plan():
-        # drain the queue in case there is anything left over from a previous
-        # run
-        while True:
-            try:
-                from_recommender.get(block=False)
-            except Empty:
-                break
-        uids = []
-        next_point = first_point
-        for j in itertools.count():
-            # extract the target position as a tuple
-            target = tuple(next_point[k.name] for k in pseudo_axes)
-            print(f"next point: {pprint.pformat(next_point)}")
-            # if we have a snapping function use it
-            if snap_function is not None:
-                target = snap_function(*target)
-            print(f"snapped target: {target}")
-            # compute the real target
-            real_target = transform_pair.forward(*target)
-            print(f"real target: {real_target}")
+    # drain the queue in case there is anything left over from a previous
+    # run
+    next_point = first_point
+    # extract the target position as a tuple
+    target = tuple(next_point[k.name] for k in pseudo_axes)
+    print(f"next point: {pprint.pformat(next_point)}")
+    # if we have a snapping function use it
+    if snap_function is not None:
+        target = snap_function(*target)
+    print(f"snapped target: {target}")
+    # compute the real target
+    real_target = transform_pair.forward(*target)
+    print(f"real target: {real_target}")
 
-            # move to the new position
-            t0 = time.time()
-            yield from bps.mov(*itertools.chain(*zip(real_motors, real_target)))
-            t1 = time.time()
-            print(f"move to target took {t1-t0:0.2f}s")
+    # move to the new position
+    t0 = time.time()
+    yield from bps.mov(*itertools.chain(*zip(real_motors, real_target)))
+    t1 = time.time()
+    print(f"move to target took {t1-t0:0.2f}s")
 
-            # read back where the motors really are
-            real_x = yield from _read_the_first_key(x_motor)
-            real_y = yield from _read_the_first_key(y_motor)
-            print(f"real x and y: {real_x}, {real_y}")
+    # read back where the motors really are
+    real_x = yield from _read_the_first_key(x_motor)
+    real_y = yield from _read_the_first_key(y_motor)
+    print(f"real x and y: {real_x}, {real_y}")
 
-            # compute the new (actual) pseudo positions
-            pseudo_target = transform_pair.inverse(real_x, real_y)
-            print(f"pseudo target: {pseudo_target}")
-            # and set our local synthetic object to them
-            yield from bps.mv(*itertools.chain(*zip(pseudo_axes, pseudo_target)))
+    # compute the new (actual) pseudo positions
+    pseudo_target = transform_pair.inverse(real_x, real_y)
+    print(f"pseudo target: {pseudo_target}")
+    # and set our local synthetic object to them
+    yield from bps.mv(*itertools.chain(*zip(pseudo_axes, pseudo_target)))
 
-            # kick off the next actually measurement!
-            uid = yield from take_data(
-                dets + list(real_motors) + [ctrl],
-                exposure,
-                y_motor,
-                real_y - rocking_range,
-                real_y + rocking_range,
-                md={
-                    **_md,
-                    "batch_count": j,
-                    "adaptive_step": {
-                        "requested": next_point,
-                        "snapped": {k.name: v for k, v in zip(pseudo_axes, target)},
-                    },
-                },
-                **take_data_kwargs,
-            )
-            uids.append(uid)
+    # kick off the next actually measurement!
+    uid = yield from take_data(
+        dets + list(real_motors) + [ctrl],
+        exposure,
+        y_motor,
+        real_y - rocking_range,
+        real_y + rocking_range,
+        md={
+            **_md,
+            "adaptive_step": {
+                "requested": next_point,
+                "snapped": {k.name: v for k, v in zip(pseudo_axes, target)},
+            },
+        },
+        **take_data_kwargs,
+    )
 
-            # ask the reccomender what to do next
-            t0 = time.time()
-            next_point = from_recommender.get(timeout=reccomender_timeout)
-            t1 = time.time()
-            print(f"waited {t1-t0:.2f}s for recommendation")
-
-            print(f"batch count: {j}")
-            if next_point is None:
-                print("no recommendation - stopping")
-                return
-            elif j > 10:
-                print(f"stopping after batch_count reached {j}")
-                return
-            else:
-                print("keep going!")
-
-        return uids
-
-    return (yield from gp_inner_plan())
+    return uid
 
 
 class SignalWithUnits(Signal):
