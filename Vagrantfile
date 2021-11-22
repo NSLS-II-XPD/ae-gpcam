@@ -1,83 +1,65 @@
-# -*- mode: ruby -*-
-# vi: set ft=ruby :
-
-# All Vagrant configuration is done below. The "2" in Vagrant.configure
-# configures the configuration version (we support older styles for
-# backwards compatibility). Please don't change it unless you know what
-# you're doing.
 Vagrant.configure("2") do |config|
-  # The most common configuration options are documented and commented below.
-  # For a complete reference, please see the online documentation at
-  # https://docs.vagrantup.com.
+  config.vm.box = "bento/ubuntu-20.10"
+  config.vm.box_check_update = true
 
-  # Every Vagrant development environment requires a box. You can search for
-  # boxes at https://vagrantcloud.com/search.
-  config.vm.box = "bento/centos-8"
+  config.vm.network "forwarded_port", guest: 60610, host: 60610
 
-  # Disable automatic box update checking. If you disable this, then
-  # boxes will only be checked for updates when the user runs
-  # `vagrant box outdated`. This is not recommended.
-  # config.vm.box_check_update = false
+  config.ssh.forward_agent = true
+  config.ssh.forward_x11 = true
 
-  # Create a forwarded port mapping which allows access to a specific port
-  # within the machine from a port on the host machine. In the example below,
-  # accessing "localhost:8080" will access port 80 on the guest machine.
-  # NOTE: This will enable public access to the opened port
-  # config.vm.network "forwarded_port", guest: 80, host: 8080
-
-  # Create a forwarded port mapping which allows access to a specific port
-  # within the machine from a port on the host machine and only allow access
-  # via 127.0.0.1 to disable public access
-  # config.vm.network "forwarded_port", guest: 80, host: 8080, host_ip: "127.0.0.1"
-
-  # Create a private network, which allows host-only access to the machine
-  # using a specific IP.
-  # config.vm.network "private_network", ip: "192.168.33.10"
-
-  # Create a public network, which generally matched to bridged network.
-  # Bridged networks make the machine appear as another physical device on
-  # your network.
-  # config.vm.network "public_network"
-
-  # Share an additional folder to the guest VM. The first argument is
-  # the path on the host to the actual folder. The second argument is
-  # the path on the guest to mount the folder. And the optional third
-  # argument is a set of non-required options.
-  # config.vm.synced_folder "../data", "/vagrant_data"
-
-  # Provider-specific configuration so you can fine-tune various
-  # backing providers for Vagrant. These expose provider-specific options.
-  # Example for VirtualBox:
-  #
   config.vm.provider "virtualbox" do |vb|
-    # Display the VirtualBox GUI when booting the machine
     vb.gui = false
-
-    # Customize the amount of memory on the VM:
-    vb.memory = "4096"
   end
-  #
-  # View the documentation for the provider you are using for more
-  # information on available options.
 
   # Enable provisioning with a shell script. Additional provisioners such as
   # Ansible, Chef, Docker, Puppet and Salt are also available. Please see the
   # documentation for more information about their specific syntax and use.
-  config.vm.provision "file", source: "~/.ssh/id_rsa.pub", destination: "/home/vagrant/.ssh/id_rsa.pub"
-  config.vm.provision "file", source: "~/.ssh/id_rsa", destination: "/home/vagrant/.ssh/id_rsa"
-  config.vm.provision "shell", inline: <<-SHELL
-    sudo echo -e "\nX11UseLocalhost no" >> /etc/ssh/sshd_config
-    sudo dnf -y update
-    sudo dnf -y install gcc git podman buildah python38 python38-devel python38-pip
-  SHELL
+  #config.vm.provision "file", source: "~/.ssh/id_rsa.pub", destination: "/home/vagrant/.ssh/id_rsa.pub"
+  #config.vm.provision "file", source: "~/.ssh/id_rsa", destination: "/home/vagrant/.ssh/id_rsa"
+#   config.vm.provision "shell", inline: <<-SHELL
+#     sudo echo -e "\nX11UseLocalhost no" >> /etc/ssh/sshd_config
+#     sudo dnf -y update
+#     sudo dnf -y install gcc git podman buildah python38 python38-devel python38-pip
+#   SHELL
 
   config.vm.provision "shell", inline: <<-SHELL
-    cd /vagrant/ae_gpcam
-    time sudo bash image_builders/build_bluesky_base_image.sh
-    time sudo bash image_builders/build_bluesky_image.sh
-    time sudo bash image_builders/build_caproto_image.sh
-    time sudo bash image_builders/build_databroker_server_image.sh
-    time sudo bash image_builders/build_typhos_image.sh
-    time sudo bash image_builders/build_xpdan.sh
+    # https://www.digitalocean.com/community/tutorials/how-to-install-and-use-docker-on-ubuntu-20-04
+    apt update
+    apt full-upgrade
+    apt install -y python3-pip
+    # install X11 for matplotlib
+    apt install -y xserver-xorg-core x11-utils x11-apps
+
+    # install miniconda3
+    wget -P /tmp https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
+    bash /tmp/Miniconda3-latest-Linux-x86_64.sh -b -p /home/vagrant/miniconda3
+    rm /tmp/Miniconda3-latest-Linux-x86_64.sh
+    /home/vagrant/miniconda3/bin/conda init --system
+    /home/vagrant/miniconda3/bin/conda update conda -y
+
+    # create a conda environment for development
+    /home/vagrant/miniconda3/bin/conda create -y -n ae_gpcam python=3.8 bluesky-httpserver
+    /home/vagrant/miniconda3/envs/ae_gpcam/bin/pip install -e /vagrant
+    /home/vagrant/miniconda3/envs/ae_gpcam/bin/pip install -r /vagrant/requirements-dev.txt
+    # change ownership for /home/vagrant/miniconda3 after creating virtual environments and installing packages
+    chown -R vagrant:vagrant /home/vagrant/miniconda3
+
+    # install mongodb
+    wget -qO - https://www.mongodb.org/static/pgp/server-4.4.asc | sudo apt-key add -
+    echo "deb [ arch=amd64,arm64 ] https://repo.mongodb.org/apt/ubuntu focal/mongodb-org/4.4 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-4.4.list
+    apt update
+    apt install -y mongodb-org
+
+    # note: change the mongodb bindIP in /etc/mongod.conf to 0.0.0.0 to allow connections from the host
+    sed "s;bindIP;bindIP 0.0.0.0;" -i /etc/mongod.conf
+
+    systemctl start mongod
+    systemctl enable mongod
+
+    # databroker will look for this directory
+    # it should probably be created in scripts/start_sirepo.sh
+    cd /home/vagrant
+    mkdir -p .local/share/intake
+    chown -Rv vagrant:vagrant .local
   SHELL
 end

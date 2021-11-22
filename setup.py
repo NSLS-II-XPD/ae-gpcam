@@ -7,7 +7,7 @@ import versioneer
 # NOTE: This file must remain Python 2 compatible for the foreseeable future,
 # to ensure that we error out properly for people with outdated setuptools
 # and/or pip.
-min_version = (3, 8)
+min_version = (3, 7)
 if sys.version_info < min_version:
     error = """
 ae-gpcam does not support Python {0}.{1}.
@@ -29,14 +29,13 @@ here = path.abspath(path.dirname(__file__))
 with open(path.join(here, "README.md"), encoding="utf-8") as readme_file:
     readme = readme_file.read()
 
-requirements = []
-# with open(path.join(here, "requirements.txt")) as requirements_file:
-#     # Parse requirements.txt, ignoring any commented-out lines.
-#     requirements = [
-#         line
-#         for line in requirements_file.read().splitlines()
-#         if not line.startswith("#")
-#     ]
+with open(path.join(here, "requirements.txt")) as requirements_file:
+    # Parse requirements.txt, ignoring any commented-out lines.
+    requirements = [
+        line
+        for line in requirements_file.read().splitlines()
+        if not line.startswith("#")
+    ]
 
 
 setup(
