@@ -14,6 +14,8 @@ from bluesky.utils import short_uid
 from queue import Empty
 import pprint
 
+from functools import partial
+
 
 def future_count(detectors, num=1, delay=None, *, per_shot=None, md=None):
     """
@@ -371,7 +373,7 @@ def adaptive_plan(
                 print(f"stopping after batch_count reached {j}")
                 return
             else:
-                print(f"keep going!")
+                print("keep going!")
 
         return uids
 
