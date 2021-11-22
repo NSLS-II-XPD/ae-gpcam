@@ -555,7 +555,20 @@ single_data = [
 
 
 def show_layout(strip_list, ax=None, *, cell_size=4.5):
-    """Make a nice plot of the strip layout."""
+    """
+    Make a nice plot of the strip layout.
+
+    Parameters
+    ----------
+    strip_list : List[StripInfo]
+        The configuration of the strips
+
+    ax : Optional[Axes]
+        The axes to put the plot onto
+
+    cell_size : float
+        The size of the cells.
+    """
     if ax is None:
         import matplotlib.pyplot as plt
 
@@ -611,7 +624,8 @@ def show_layout(strip_list, ax=None, *, cell_size=4.5):
     ax.set_aspect("equal")
 
 
-if True:
+def show_current_config():
+    """Helper function to us locals to show current configuration."""
     import matplotlib.pyplot as plt
 
     fig, ax = plt.subplots()
