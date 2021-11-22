@@ -1,15 +1,12 @@
-"""Structures and helpers to defined sample layout."""
+"""Data and bound plan for SBU sample geometry."""
 
-import json
-from dataclasses import dataclass, asdict, astuple, field
-from collections import namedtuple, defaultdict
+from dataclasses import asdict, astuple
 
 import numpy as np
 
 import scipy.stats
 
-import matplotlib.cm as mcm
-import matplotlib.colors as mcolors
+
 import matplotlib.patches as mpatches
 
 # These terms match the pseudo positioner code in ophyd and are standard
@@ -19,12 +16,15 @@ import matplotlib.patches as mpatches
 #     aka: data coordinates -> beamline coordinates
 # Inverse: real positions       -> pseudo positions
 #     aka: beamline coordinates -> data coordinates
-from ae_pgcam import (
+from ae_gpcam.sample_geometry import (
     StripInfo,
     strip_list_transform_factory,
     single_strip_transform_factory,
     show_layout,
+    snap_factory,
 )
+from ae_gpcam.plans import deconstructed_pseudo_plan
+from ae_gpcam.soft_devices import Control
 
 
 # this is to do the data-entry on the temperature, annealing time,
@@ -254,6 +254,7 @@ def show_current_config():
     plt.show()
 
 
+# This is a run-time test
 for strip in single_data:
     pair = single_strip_transform_factory(*astuple(strip))
     for j, ti_frac in enumerate(strip.ti_fractions[1:-1]):
@@ -265,3 +266,32 @@ for strip in single_data:
         assert np.allclose(start, ret, atol=0.01)
 
 pair = strip_list_transform_factory(single_data)
+snap_function = snap_factory(single_data, time_tol=None, temp_tol=None, Ti_tol=None)
+
+
+def SBU_plan(
+    ti_fraction: float,
+    temperature: int,
+    annealing_time: int,
+    exposure: float,
+    thickness: int,
+    num: int,
+    *,
+    rocking_range: float = 2,
+):
+    ctrl = Control(name="ctrl")
+    return (
+        yield from (
+            deconstructed_pseudo_plan(
+                [pe2c],
+                point=(ti_fraction, temperature, annealing_time, thickness),
+                exposure=exposure,
+                num=num,
+                rocking_range=rocking_range,
+                transform_pair=pair,
+                real_motors=(),
+                pseudo_signals=ctrl,
+                snap_function=snap_function,
+            )
+        )
+    )
