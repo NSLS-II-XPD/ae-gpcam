@@ -576,24 +576,14 @@ def show_layout(strip_list, ax=None, *, cell_size=4.5):
             )
             d = strip.start_distance - j * cell_size
             rect = mpatches.Rectangle(
-                (
-                    x - cell_size / 2,
-                    y - cell_size / 2,
-                ),
+                (x - cell_size / 2, y - cell_size / 2,),
                 cell_size,
                 cell_size,
                 color=color,
             )
             ax.add_patch(rect)
             cells[strip].append(
-                ax.text(
-                    x,
-                    y,
-                    f"{ti_frac}",
-                    ha="center",
-                    va="center",
-                    color="w",
-                )
+                ax.text(x, y, f"{ti_frac}", ha="center", va="center", color="w",)
             )
             cells[strip].append(rect)
         d = cell_size * (len(strip.ti_fractions) - 0.5) - strip.start_distance
