@@ -3,6 +3,7 @@ import json
 import pprint
 from queue import Queue
 import time
+import pathlib
 
 import numpy as np
 import redis
@@ -13,6 +14,9 @@ from bluesky_adaptive.recommendations import NoRecommendation
 from bluesky_adaptive.utils import extract_event_page
 
 from bluesky.callbacks.zmq import RemoteDispatcher as ZmqRemoteDispatcher
+from databroker._drivers.msgpack import BlueskyMsgpackCatalog
+
+from suitcase.msgpack import Serializer
 
 from gpcam import gp_optimizer
 
@@ -187,6 +191,9 @@ arg_parser.add_argument("--zmq-host", type=str, default="xf28id2-ca1")
 arg_parser.add_argument("--zmq-subscribe-port", type=int, default=5578)
 arg_parser.add_argument("--zmq-subscribe-prefix", type=str, default="rr")
 
+# cache documents we see
+arg_parser.add_argument("--document-cache", type=pathlib.Path, default=None)
+
 args = arg_parser.parse_args()
 
 pprint.pprint(vars(args))
@@ -205,7 +212,7 @@ gpopt = gp_optimizer.GPOptimizer(
     input_space_dimension=4,
     output_space_dimension=1,
     output_number=1,
-    index_set_bounds=[[16, 81], [7.5*60, 60*60], [340, 460], [0, 1]],
+    index_set_bounds=[[16, 81], [7.5 * 60, 60 * 60], [340, 460], [0, 1]],
     hyperparameter_bounds=[[0.1, 100], [0.1, 100], [0.1, 100], [0.1, 100]],
 )
 
@@ -218,7 +225,24 @@ gpcam_recommender_run_router, _ = recommender_factory(
     queue=redis_queue,
 )
 
+
 zmq_dispatcher.subscribe(gpcam_recommender_run_router)
+
+if args.document_cache is not None:
+    cat = BlueskyMsgpackCatalog(args.document_cache / "*.msgpack")
+    for uid in cat:
+        h = cat[uid]
+        # TODO extra and update your state here!
+        df = h.primary.read()
+        start = h.metadata["start"]
+        # or
+        for name, doc in h.documents():
+            ...
+
+    rr = RunRouter(
+        [lambda name, doc: ([Serializer(args.document_cache, flush=True)], [])]
+    )
+    zmq_dispatcher.subscribe(rr)
 
 
 print(f"ADAPTIVE GPCAM CONSUMER LISTENING ON {args.zmq_subscribe_prefix.encode()}")
