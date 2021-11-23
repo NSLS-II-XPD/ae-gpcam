@@ -6,16 +6,10 @@ import numpy as np
 
 import scipy.stats
 
-
 import matplotlib.patches as mpatches
 
-# These terms match the pseudo positioner code in ophyd and are standard
-# in motion control.
+from xpdacq.xpdacq import translate_to_sample
 
-# Forward: pseudo positions -> real positions
-#     aka: data coordinates -> beamline coordinates
-# Inverse: real positions       -> pseudo positions
-#     aka: beamline coordinates -> data coordinates
 from ae_gpcam.sample_geometry import (
     StripInfo,
     strip_list_transform_factory,
@@ -270,6 +264,7 @@ snap_function = snap_factory(single_data, time_tol=None, temp_tol=None, Ti_tol=N
 
 
 def SBU_plan(
+    sample_number: int,
     ti_fraction: float,
     temperature: int,
     annealing_time: int,
@@ -278,7 +273,10 @@ def SBU_plan(
     num: int,
     *,
     rocking_range: float = 2,
+    md=None,
 ):
+    _md = translate_to_sample(bt, sample_number)
+    _md.update(md or {})
     ctrl = Control(name="ctrl")
     return (
         yield from (
