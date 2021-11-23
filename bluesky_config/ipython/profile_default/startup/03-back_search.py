@@ -1,6 +1,15 @@
 import itertools
+import time
+import uuid
+
+import numpy as np
+
+
 import bluesky.plan_stubs as bps
 
+
+from ae_gpcam.plans import stepping_ct
+from ae_gpcam.soft_devices import Control
 
 p1 = [
     (52.0, 340, 450, 0),
@@ -73,7 +82,7 @@ def batch_scan(
     real_motors,
     exposure=20,
     take_data=stepping_ct,
-    transform_pair
+    transform_pair,
 ):
     # unpack the real motors
     x_motor, y_motor = real_motors
@@ -89,16 +98,19 @@ def batch_scan(
             "points": points,
             "ti_range": ti_range,
         },
-        'sample_points': sample_points
+        "sample_points": sample_points,
     }
-
+    uids = []
     for p in sample_points:
         ti, *strip = p
-        for j, ti_m in enumerate(np.linspace(ti-ti_range/2, ti+ti_range/2, points)):
+
+        for j, ti_m in enumerate(
+            np.linspace(ti - ti_range / 2, ti + ti_range / 2, points)
+        ):
             try:
                 real_target = transform_pair.forward(ti_m, *strip)
             except ValueError:
-                print(f'missed {ti_m} {ti}')
+                print(f"missed {ti_m} {ti}")
             print(f"real target: {real_target}")
 
             # move to the new position
@@ -108,8 +120,8 @@ def batch_scan(
             print(f"move to target took {t1-t0:0.2f}s")
 
             # read back where the motors really are
-            real_x = yield from _read_the_first_key(x_motor)
-            real_y = yield from _read_the_first_key(y_motor)
+            real_x = yield from bps.rd(x_motor)
+            real_y = yield from bps.rd(y_motor)
             print(f"real x and y: {real_x}, {real_y}")
             if real_x is None:
                 real_x, real_y = real_target
@@ -125,10 +137,8 @@ def batch_scan(
                 y_motor,
                 real_y - rocking_range,
                 real_y + rocking_range,
-                md={
-                    **_md,
-                    "center_point": p,
-                    "inner_count": j,
-                },
-                num=rocking_num
+                md={**_md, "center_point": p, "inner_count": j},
+                num=rocking_num,
             )
+            uids.append(uid)
+        return uids
