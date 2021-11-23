@@ -102,9 +102,26 @@ for h in cat.values():
     c[key] += 1
 pprint.pprint(c)
 
+
+# simulate actually processing the data!
+def brains_callback(name, doc):
+    if name == "start":
+        key = f'Sample {doc["sample_num"]}'
+        c[key] += 1
+        print(f"Saw a {key}")
+
+
 # Set up the machinery to write generated documents to disk.  In the real case
 # this should be subscribed next to the RunRouter that holds the agent.
-rr = RunRouter([lambda name, doc: ([Serializer(args.document_cache, flush=True)], [])])
+rr = RunRouter(
+    [
+        lambda name, doc: (
+            [Serializer(args.document_cache, flush=True), brains_callback],
+            [],
+        )
+    ]
+)
 
 # turn the crank to generate some "synthetic" data.
 make_some_heuristics(5, 15, pub=rr)
+pprint.pprint(c)
