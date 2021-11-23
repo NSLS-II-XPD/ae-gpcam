@@ -1,4 +1,4 @@
-from typeing import Callable
+from typing import Callable
 import time
 import uuid
 import argparse
