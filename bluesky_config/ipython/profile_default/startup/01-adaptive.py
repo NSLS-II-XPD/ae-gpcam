@@ -289,7 +289,7 @@ def SBU_plan(
                 num=num,
                 rocking_range=rocking_range,
                 transform_pair=pair,
-                real_motors=(),
+                real_motors=(sample_x, ss_stg2_y),
                 pseudo_signals=ctrl,
                 snap_function=snap_function,
             )
