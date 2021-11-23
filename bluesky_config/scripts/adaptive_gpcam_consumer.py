@@ -229,7 +229,7 @@ gpcam_recommender_run_router, _ = recommender_factory(
 zmq_dispatcher.subscribe(gpcam_recommender_run_router)
 
 if args.document_cache is not None:
-    cat = BlueskyMsgpackCatalog(args.document_cache / "*.msgpack")
+    cat = BlueskyMsgpackCatalog(str(args.document_cache / "*.msgpack"))
     for uid in cat:
         h = cat[uid]
         # TODO extra and update your state here!
