@@ -262,7 +262,7 @@ def deconstructed_pseudo_plan(
     real_motors,
     pseudo_signals,
     snap_function,
-    take_data=stepping_ct,
+    take_data=None,
 ):
     """
     Work with a deconsructed pseudo positioner.
@@ -330,7 +330,8 @@ def deconstructed_pseudo_plan(
                returns snapped_Ti, snapped_temperature, snapped_time
 
     """
-
+    if take_data is None:
+        take_data = stepping_ct
     # unpack the real motors
     x_motor, y_motor = real_motors
     # make the soft pseudo axis

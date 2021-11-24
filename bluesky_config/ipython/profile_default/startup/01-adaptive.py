@@ -8,6 +8,11 @@ import scipy.stats
 
 import matplotlib.patches as mpatches
 
+import bluesky.plans as bp
+import bluesky.preprocessors as bpp
+
+from bluesky.callbacks.core import LiveTable
+
 from xpdacq.xpdacq import translate_to_sample
 
 from ae_gpcam.sample_geometry import (
@@ -17,7 +22,7 @@ from ae_gpcam.sample_geometry import (
     show_layout,
     snap_factory,
 )
-from ae_gpcam.plans import deconstructed_pseudo_plan
+from ae_gpcam.plans import deconstructed_pseudo_plan as _dpp
 from ae_gpcam.soft_devices import Control
 
 
@@ -280,7 +285,7 @@ def SBU_plan(
     ctrl = Control(name="ctrl")
     return (
         yield from (
-            deconstructed_pseudo_plan(
+            _dpp(
                 [pe2c],
                 point=(ti_fraction, temperature, annealing_time, thickness),
                 exposure=exposure,
@@ -293,3 +298,41 @@ def SBU_plan(
             )
         )
     )
+
+
+def simple_ct(dets, exposure, *, md=None):
+    """A minimal wrapper around count that adjusts exposure time."""
+    md = md or {}
+
+    # setting up area_detector
+    (ad,) = (d for d in dets if hasattr(d, "cam"))
+    (num_frame, acq_time, computed_exposure) = yield from configure_area_det(
+        ad, exposure
+    )
+
+    sp = {
+        "time_per_frame": acq_time,
+        "num_frames": num_frame,
+        "requested_exposure": exposure,
+        "computed_exposure": computed_exposure,
+        "type": "ct",
+        "uid": str(uuid.uuid4()),
+        "plan_name": "ct",
+    }
+
+    # update md
+    _md = {"sp": sp, **{f"sp_{k}": v for k, v in sp.items()}}
+    _md.update(md)
+    plan = bp.count(dets, md=_md)
+    plan = bpp.subs_wrapper(plan, LiveTable([]))
+    return (yield from plan)
+
+
+def sample_aware_count(sample_num: int, exposure: float, *, md=None):
+    """
+    A wrapper around count that tries to mimic xpdacq.
+
+    """
+    _md = translate_to_sample(bt, sample_num)
+    _md.update(md or {})
+    yield from simple_ct([pe2c], exposure, md=_md)
