@@ -1,3 +1,4 @@
+from typing import Callable
 import argparse
 import numpy as np
 from queue import Queue
@@ -10,7 +11,9 @@ from bluesky_adaptive.recommendations import NoRecommendation
 
 
 class Agent:
-    def __init__(self, n_samples):
+    def __init__(
+        self, n_samples: int, quality_function: Callable[[np.array], int] = None
+    ):
         """
         Agent class that retains a counter of measurements at each sample,
         the index of the current sample, and a quality array with the current sample quality
@@ -29,9 +32,23 @@ class Agent:
         self.counter = Counter()  # Counter of measurements
         self.current = None  # Current sample
         self.n_samples = n_samples
-        self.quality = np.zeros(
-            self.n_samples,
-        )  # Current understood quality
+        self.cum_sum = dict()
+        self.quality = np.zeros(self.n_samples)  # Current understood quality
+        if quality_function is None:
+            self.quality_function = self._default_quality
+        else:
+            self.quality_function = quality_function
+
+    @staticmethod
+    def _default_quality(arr) -> int:
+        """Uses a proxy for Signal to Noise to break into 3 tiers."""
+        SNR = np.max(arr) / np.mean(arr)
+        if SNR < 2:
+            return 1
+        elif SNR < 3:
+            return 2
+        else:
+            return 3
 
     def tell(self, y):
         """
@@ -45,7 +62,11 @@ class Agent:
 
         """
         self.counter[self.current] += 1
-        self.quality[self.current] = y
+        if self.current in self.cum_sum:
+            self.cum_sum[self.current] += y
+        else:
+            self.cum_sum[self.current] = y
+        self.quality[self.current] = self.quality_function(self.cum_sum[self.current])
 
     def tell_many(self, xs, ys):
         """Useful for reload"""
@@ -117,7 +138,7 @@ class MarkovAgent(Agent):
         while not accept:
             proposal = self.rng.integers(self.n_samples)
             if self.rng.random() < (self.max_quality - self.quality[proposal]) / (
-                    self.max_quality - self.min_quality
+                self.max_quality - self.min_quality
             ):
                 accept = True
 
@@ -125,8 +146,12 @@ class MarkovAgent(Agent):
 
 
 def reccomender_factory(
-        adaptive_object, sample_index_key, sample_quality_key, *, queue=None,
-        cache_callback=None,
+    adaptive_object,
+    sample_index_key,
+    sample_data_key,
+    *,
+    queue=None,
+    cache_callback=None,
 ):
     if queue is None:
         queue = Queue()
@@ -134,7 +159,9 @@ def reccomender_factory(
     if cache_callback is None:
         prelim_callbacks = ()
     else:
-        prelim_callbacks = [cache_callback,]
+        prelim_callbacks = [
+            cache_callback,
+        ]
 
     def callback(name, doc):
         """Assumes the start doc gives you the sample location,
@@ -148,13 +175,13 @@ def reccomender_factory(
             adaptive_object.current = current_index
 
         elif name == "event_page":
-            quality = extract_event_page(
+            data = extract_event_page(
                 [
-                    sample_quality_key,
+                    sample_data_key,
                 ],
                 payload=doc["data"],
             )
-            adaptive_object.tell(quality)
+            adaptive_object.tell(data)
 
             try:
                 next_point = adaptive_object.ask(1)
@@ -189,7 +216,6 @@ if __name__ == "__main__":
     }[args.agent]
     ####################################################################
 
-
     if args.document_cache is not None:
         cat = BlueskyMsgpackCatalog(str(args.document_cache / "*.msgpack"))
         for uid in cat:
@@ -212,7 +238,7 @@ if __name__ == "__main__":
         sample_index_key="sample number",
         sample_quality_key="quality",
         queue=Queue(),
-        cache_callback=cache_callback
+        cache_callback=cache_callback,
     )
     ####################################################################
 
