@@ -227,9 +227,8 @@ if __name__ == "__main__":
         ys = []
         for uid in cat:
             h = cat[uid]
-            df = h.primary.read()
             xs.append(h.metadata["start"]["sample_number"])
-            ys.append(h.metadata["event_page"]["data"])
+            ys.append(h.primary.read())
         agent.tell_many(xs, ys)
         cache_callback = Serializer(args.document_cache, flush=True)
     else:
