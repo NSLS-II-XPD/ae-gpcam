@@ -72,7 +72,12 @@ class Agent:
         """Useful for reload"""
         for x, y in zip(xs, ys):
             self.counter[x] += 1
-            self.quality[x] = y
+            if self.current in self.cum_sum:
+                self.cum_sum[x] += y
+            else:
+                self.cum_sum[x] = y
+        for i in range(self.n_samples):
+            self.quality[i] = self.quality_function(self.cum_sum[i])
 
     def ask(self, n):
         raise NotImplemented
