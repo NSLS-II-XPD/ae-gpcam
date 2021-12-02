@@ -223,15 +223,14 @@ if __name__ == "__main__":
 
     if args.document_cache is not None:
         cat = BlueskyMsgpackCatalog(str(args.document_cache / "*.msgpack"))
+        xs = []
+        ys = []
         for uid in cat:
             h = cat[uid]
-            # TODO Update the agent in this space! Isn't this redundant with the factory callback?
             df = h.primary.read()
-            start = h.metadata["start"]
-            # or
-            for name, doc in h.documents():
-                ...
-
+            xs.append(h.metadata["start"]["sample_number"])
+            ys.append(h.metadata["event_page"]["data"])
+        agent.tell_many(xs, ys)
         cache_callback = Serializer(args.document_cache, flush=True)
     else:
         cache_callback = None
